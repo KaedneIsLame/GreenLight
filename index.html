@@ -2230,7 +2230,7 @@ const CHANGELOG = [
             "The verdict is computed in front of you - the five axes resolve one at a time with a haptic tick each, a progress line fills, and the score reveals on a heartbeat. It reads as work being done rather than a number appearing, and it covers the live-data fetch instead of a bare spinner.",
             "Haptic strength control (Light / Medium / Strong) with test buttons in Settings, so you can check the hardware without guessing.",
             "Studio -> Audit now shows which of YOUR formats compound - each format and game ranked by lift against your own median, plus a with-friends versus solo split. Reads public data you already pulled, so it costs no quota.",
-            "Real analytics (Studio -> Analytics). Sign in with your own Google account and the app reads your private YouTube data: the actual retention curve per video, true CTR against impressions, average view percentage and traffic sources. It also compares your hook score against what the audience really did at 30 seconds and tells you when structure is not the problem.",
+            "Real analytics (Studio -> Analytics). Sign in with your own Google account and the app reads your private YouTube data: the actual retention curve per video, average view percentage, traffic sources, and true CTR where your account exposes thumbnail impressions. It also compares your hook score against what the audience really did at 30 seconds and tells you when structure is not the problem.",
             "Hook analyzer in the Check tab \u2014 scores your first 30 seconds against Context Lean, Pattern Interrupt and Snapback before you record, flags filler openers like \u2018hey guys welcome back\u2019, and tells you exactly what to fix. Your 48-hour check could already diagnose a hook problem; now there\u2019s a tool for it.",
             "Idea Bank in Radar \u2014 dump half-formed ideas the moment they happen, send any of them straight to Check, and get flagged when one goes stale unused.",
             "Channels in Radar \u2014 track competitors and see what they published since you last looked, with anything that beat their own normal called out.",
@@ -3067,7 +3067,7 @@ MANUAL.push(
       "Studio -> Analytics -> Connect YouTube, sign in with the channel's account and accept the analytics permission.",
       "Press Retention on any video to pull its curve."],
  example:"You connect and see a video at 3.1% CTR on 48,000 impressions. Its retention shows 43% left by 30 seconds with the steepest fall at 0:30. Your saved hook scores 85 on structure, so the app tells you structure is not the problem - delivery, pacing, or a thumbnail promising something the open does not deliver.",
- watch:"Browser sign-ins last about an hour and cannot be refreshed without a server, so you press Connect roughly once per session. The token is stored on this device and deliberately never synced; only the Client ID syncs. This is the one feature that needs internet - everything else still works offline."}
+ watch:"Thumbnail impression metrics are newer than the rest of the API, so some accounts reject them. If yours does, the panel says so and still shows everything else rather than failing. Browser sign-ins last about an hour and cannot be refreshed without a server, so you press Connect roughly once per session. The token is stored on this device and deliberately never synced; only the Client ID syncs. This is the one feature that needs internet - everything else still works offline."}
 ,
 {id:"series", tab:"studio", area:"Studio", title:"Which of your formats compound",
  what:"Runs your own uploads through the same format detector used on competitors, then ranks each format by how it performs against your own median. Also splits with-friends against solo.",
@@ -3661,13 +3661,27 @@ async function ytaOverview(days){
           subsUp:row[4]||0, subsDown:row[5]||0, days:days||90};
 }
 // Per-video impressions and true CTR.
+// Google's identifiers here are videoThumbnailImpressions / ...ClickRate, not
+// "impressions". They were added Jan 2026, so an older or restricted account
+// can still reject them - in which case fall back to the core metrics rather
+// than losing the whole panel.
+const CTR_METRICS = "videoThumbnailImpressions,videoThumbnailImpressionsClickRate";
 async function ytaTopVideos(days, max){
   const d = ytaDates(days||90);
-  const j = await ytaGet({...d, dimensions:"video", sort:"-views",
-    maxResults:String(max||20),
-    metrics:"views,averageViewPercentage,impressions,impressionClickThroughRate,averageViewDuration"});
-  return (j.rows||[]).map(r=>({id:r[0], views:r[1]||0, avgPct:r[2]||0,
-                               impressions:r[3]||0, ctr:r[4]||0, avgDur:r[5]||0}));
+  const base = {...d, dimensions:"video", sort:"-views", maxResults:String(max||20)};
+  try{
+    const j = await ytaGet({...base,
+      metrics:"views,averageViewPercentage,averageViewDuration," + CTR_METRICS});
+    return {ctr:true, rows:(j.rows||[]).map(r=>({id:r[0], views:r[1]||0, avgPct:r[2]||0,
+      avgDur:r[3]||0, impressions:r[4]||0, ctr:r[5]||0}))};
+  }catch(e){
+    if (e.message === "NEEDS_AUTH") throw e;
+    if (!/unknown identifier|not supported|invalid/i.test(e.message||"")) throw e;
+    const j = await ytaGet({...base, metrics:"views,averageViewPercentage,averageViewDuration"});
+    return {ctr:false, reason:e.message,
+      rows:(j.rows||[]).map(r=>({id:r[0], views:r[1]||0, avgPct:r[2]||0, avgDur:r[3]||0,
+                                 impressions:0, ctr:0}))};
+  }
 }
 // The retention graph itself.
 async function ytaRetention(videoId){
@@ -4572,9 +4586,10 @@ function renderReal(state){
     box.innerHTML = h; labelManualLinks(); return;
   }
   const o = cached.overview || {};
+  const ctrOk = cached.ctrOk !== false;
   const vids = cached.videos || [];
   const traffic = cached.traffic || [];
-  h += `<div class="calcard">
+  if (cached.overview) h += `<div class="calcard">
     <div class="calhead2">
       <span class="calbig ${o.avgPct>=45?"g":o.avgPct>=30?"y":"r"}">${Math.round(o.avgPct||0)}%</span>
       <span class="callab">average view percentage across ${o.days} days<br>
@@ -4586,16 +4601,17 @@ function renderReal(state){
   </div>`;
 
   if (vids.length){
-    h += `<div class="callab" style="margin-top:12px">Your videos \u2014 real CTR</div>`;
+    h += `<div class="callab" style="margin-top:12px">Your videos${ctrOk? " \u2014 real CTR" : ""}</div>`;
+    if (!ctrOk) h += `<div class="note" style="margin-bottom:6px">Your account didn't return thumbnail impression data, so CTR is unavailable here \u2014 read it in YouTube Studio instead. Everything else below is live.</div>`;
     h += vids.slice(0,12).map(v=>{
       const c = ctrRead(v.impressions, v.ctr, v.views);
       const cls = v.ctr>=8?"pos" : v.ctr>=4?"zero" : "neg";
       return `<div class="vrow" style="align-items:flex-start">
         <span class="vlab" style="flex:1">
           <b>${esc((v.title||v.id).slice(0,52))}</b>
-          ${fmtNum(v.views)} views \u00b7 ${fmtNum(v.impressions)} impressions \u00b7 ${Math.round(v.avgPct)}% viewed
+          ${fmtNum(v.views)} views${ctrOk? " \u00b7 " + fmtNum(v.impressions) + " impressions" : ""} \u00b7 ${Math.round(v.avgPct)}% viewed
         </span>
-        <span class="calsep ${cls}" style="width:56px">${(v.ctr||0).toFixed(1)}%</span>
+        ${ctrOk? `<span class="calsep ${cls}" style="width:56px">${(v.ctr||0).toFixed(1)}%</span>` : ""}
         <button class="btn2 realRet" data-id="${esc(v.id)}" data-dur="${Math.round((v.avgDur||0)/Math.max(0.01,(v.avgPct||1)/100))}" style="flex:none">Retention</button>
       </div>`;
     }).join("");
@@ -4635,9 +4651,19 @@ async function realRefresh(){
   renderReal("loading"); haptics("working");
   try{
     if (!gTokenValid()) await gConnect();
-    const [overview, videos, traffic] = await Promise.all([
+    // settle independently: a metric one account can't read shouldn't lose the rest
+    const [ovR, vidR, trafR] = await Promise.allSettled([
       ytaOverview(90), ytaTopVideos(90, 20), ytaTraffic(90)
     ]);
+    const authFailed = [ovR, vidR, trafR].some(x=>
+      x.status==="rejected" && x.reason && x.reason.message === "NEEDS_AUTH");
+    if (authFailed) throw new Error("NEEDS_AUTH");
+    if (ovR.status === "rejected" && vidR.status === "rejected" && trafR.status === "rejected")
+      throw ovR.reason;
+    const overview = ovR.status==="fulfilled" ? ovR.value : null;
+    const vidPack  = vidR.status==="fulfilled" ? vidR.value : {ctr:false, rows:[], reason:(vidR.reason&&vidR.reason.message)||""};
+    const traffic  = trafR.status==="fulfilled" ? trafR.value : [];
+    const videos   = vidPack.rows;
     // titles come from the public data we already hold
     let titles = {};
     try{
@@ -4645,7 +4671,8 @@ async function realRefresh(){
       (C && C.rows || []).forEach(r=>{ if (r.id) titles[r.id] = r.title; });
     }catch(e){}
     videos.forEach(v=>{ v.title = titles[v.id] || v.id; });
-    store.yta = {ts:Date.now(), overview, videos, traffic};
+    store.yta = {ts:Date.now(), overview, videos, traffic,
+                 ctrOk: vidPack.ctr, ctrWhy: vidPack.reason || ""};
     realPick = null;
     haptics("done"); toast("Analytics updated");
   }catch(e){
