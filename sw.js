@@ -1,4 +1,4 @@
-const C = "greenlight-v40";
+const C = "greenlight-v50";
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png",
       "./bible-1-production-bible.pdf",
