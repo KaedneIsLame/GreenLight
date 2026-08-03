@@ -697,6 +697,19 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
   }
   .skel i{ animation:none !important; }
 }
+
+/* v5: the verdict is computed, not fetched - show the working */
+@keyframes scanSweep{ 0%{ background-position:-260px 0; } 100%{ background-position:260px 0; } }
+@keyframes axLand  { 0%{ transform:translateX(-6px); opacity:.4; } 60%{ transform:translateX(2px); } 100%{ transform:none; opacity:1; } }
+.analysing .axname{ opacity:.45; }
+.analysing .ax.waiting .axwhy{ height:11px; border-radius:6px; color:transparent;
+  background:linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.14) 45%, rgba(255,255,255,.05));
+  background-size:260px 100%; animation:scanSweep calc(1.1s * var(--anim)) linear infinite; }
+.analysing .ax.done .axname{ opacity:1; }
+.analysing .ax.done{ animation:axLand calc(.34s * var(--anim)) cubic-bezier(.2,.9,.3,1); }
+.vscan{ height:3px; border-radius:3px; margin-top:12px; overflow:hidden; background:rgba(255,255,255,.07); }
+.vscan i{ display:block; height:100%; width:0%; border-radius:3px;
+  background:linear-gradient(90deg, var(--a2), var(--a1)); transition:width .34s cubic-bezier(.3,.9,.4,1); }
 </style>
 </head>
 <body>
@@ -1043,6 +1056,20 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
     <div class="note">How frosted the panels look. 0% is flat and solid — use that if scrolling ever feels sluggish on a phone.</div>
     <label class="chk" style="margin-top:10px"><input type="checkbox" id="fxOn"><span>Moving background<small>Slow drifting colour behind the app. Turn off to save battery.</small></span></label>
     <label class="chk" style="margin-top:8px"><input type="checkbox" id="hapOn"><span>Haptics<small id="hapNote">A short tap when you press something.</small></span></label>
+    <div class="mrow" style="margin-top:8px">
+      <span style="font-size:12px;color:var(--muted);align-self:center;width:64px">Strength</span>
+      <select id="hapStr" style="flex:1;padding:8px 10px">
+        <option value="light">Light</option>
+        <option value="medium">Medium</option>
+        <option value="strong">Strong</option>
+      </select>
+    </div>
+    <div class="mrow" style="margin-top:8px">
+      <button class="btn2 haptest" data-h="tap">Test tap</button>
+      <button class="btn2 haptest" data-h="heartbeat">Test heartbeat</button>
+      <button class="btn2 haptest" data-h="done">Test finish</button>
+    </div>
+    <div class="note">Feel nothing at all? Check the phone isn't on Silent or Do Not Disturb — Android blocks vibration in both, and no website can override it.</div>
     <div class="mrow"><button class="btn2" id="scaleReset">Reset to defaults</button></div>
 
     <label style="margin-top:18px">Saved looks</label>
@@ -2182,6 +2209,8 @@ const CHANGELOG = [
             "Animation throughout \u2014 lists arrive staggered instead of snapping, tabs cross-fade \u2014 the outgoing page fades and slides away while the incoming one slides in from the direction you moved, the verdict score counts up and its five bars fill in sequence, expanding sections fade rather than jump, the settings sheet scales in, and saves confirm with a toast.",
             "Skeleton loading \u2014 placeholder cards in the shape of real results, so the layout stops jumping when data lands.",
             "Compare wears your thumbnail\u2019s colour \u2014 upload one and the whole tab re-tints to match it, making a clash with the competitor feed visible instead of theoretical.",
+            "The verdict is computed in front of you - the five axes resolve one at a time with a haptic tick each, a progress line fills, and the score reveals on a heartbeat. It reads as work being done rather than a number appearing, and it covers the live-data fetch instead of a bare spinner.",
+            "Haptic strength control (Light / Medium / Strong) with test buttons in Settings, so you can check the hardware without guessing.",
             "Hook analyzer in the Check tab \u2014 scores your first 30 seconds against Context Lean, Pattern Interrupt and Snapback before you record, flags filler openers like \u2018hey guys welcome back\u2019, and tells you exactly what to fix. Your 48-hour check could already diagnose a hook problem; now there\u2019s a tool for it.",
             "Idea Bank in Radar \u2014 dump half-formed ideas the moment they happen, send any of them straight to Check, and get flagged when one goes stale unused.",
             "Channels in Radar \u2014 track competitors and see what they published since you last looked, with anything that beat their own normal called out.",
@@ -2210,7 +2239,8 @@ const CHANGELOG = [
                 "Outliers are now measured against each channel\u2019s own recent median instead of its subscriber count. The old test flagged any small channel as an outlier even when the video was completely normal for them, and missed genuine breakouts on big channels. This is why Radar felt inaccurate.",
                 "The Check verdict is now five axes \u2014 Demand, Competition, Fit, Packaging, Effort \u2014 that are allowed to disagree with each other, instead of one number. When two axes conflict the app says so in plain language, because that conflict is the actual decision.",
                 "The verdict refuses to score an idea when it has no market data at all, rather than producing a confident number from packaging alone."],
-     "Fixed":["The app would name a random capitalised word from a title as the game. Detection now carries a confidence level and a source \u2014 a store link or YouTube\u2019s own topic data is trusted, a bare title guess is not, and anything weak is shown as unidentified instead of being asserted. Greedy matching that produced names like \u201cApex Legends For 100\u201d is also fixed.",
+     "Fixed":["Haptic pulses were too short for real hardware. Tab presses were 9ms and the heartbeat's first beat 20ms, and Android motors cannot render anything under roughly 25ms - so tab presses produced nothing and the heartbeat arrived as a single thump. All durations raised to perceptible values, with a strength control on top.",
+              "The app would name a random capitalised word from a title as the game. Detection now carries a confidence level and a source \u2014 a store link or YouTube\u2019s own topic data is trusted, a bare title guess is not, and anything weak is shown as unidentified instead of being asserted. Greedy matching that produced names like \u201cApex Legends For 100\u201d is also fixed.",
               "The first and last tabs had their outer edge and glow clipped on hover. The tab bar uses a mask to fade content scrolling underneath it, and a mask clips everything inside it \u2014 with no horizontal padding there was nowhere for those two tabs to grow into.",
               "The Coach forgot how conversations started. It stored 40 messages but only ever sent the last 12, so anything said early in a long chat was invisible to it. It now sends a character-budgeted window and hands the earlier part to the system prompt as a digest, so the opening survives.",
               "Calendar no longer spills outside its card after widening then narrowing the Width slider. The seven day-columns could not shrink back below their content width; they now can.",
@@ -3857,6 +3887,8 @@ const store = {
   set presetsMts(v){ try{localStorage.setItem("gl_presetsmts",String(v||0));}catch(e){} },
   get lookUndo(){ try{return JSON.parse(localStorage.getItem("gl_lookundo")||"null");}catch(e){return null;} },
   set lookUndo(v){ try{ v? localStorage.setItem("gl_lookundo",JSON.stringify(v)) : localStorage.removeItem("gl_lookundo"); }catch(e){} },
+  get hapStrength(){ try{return localStorage.getItem("gl_hapstr")||"medium";}catch(e){return "medium";} },
+  set hapStrength(v){ try{localStorage.setItem("gl_hapstr",String(v));}catch(e){} },
   get haptics(){ try{const v=localStorage.getItem("gl_hap"); return v===null?1:Number(v);}catch(e){return 1;} },
   set haptics(v){ try{localStorage.setItem("gl_hap",String(v));}catch(e){} },
   get loopStart(){ try{return Number(localStorage.getItem("gl_loopstart")||0);}catch(e){return 0;} },
@@ -3882,29 +3914,49 @@ function haptic(ms){
 }
 // Weight the tap to what was pressed: navigation is lighter than committing.
 // Named patterns. Kept short and low so they read as texture, not alarm.
-const HAPTIC_PATTERNS = {
-  tap:       9,
-  press:     16,
-  heartbeat: [20, 65, 34],            // lub-dub \u2014 committing to something
-  working:   [8, 130, 8],             // "got it, this will take a moment"
-  done:      [10, 50, 16, 50, 26],    // rising \u2014 finished
-  fail:      [34, 70, 34]             // flat double \u2014 something went wrong
+// Real Android motors can't render anything under roughly 25ms - the first
+// pass used 9ms taps and a 20ms first heartbeat beat, which is why tab presses
+// felt like nothing and the heartbeat arrived as a single thump. These are the
+// shortest values that are reliably perceptible on a mid-range phone.
+const HAPTIC_BASE = {
+  tap:       22,
+  press:     34,
+  tick:      26,
+  heartbeat: [48, 95, 70],
+  working:   [28, 150, 28],
+  done:      [30, 70, 45, 70, 60],
+  fail:      [75, 85, 75]
 };
-function haptics(name){
-  const pat = HAPTIC_PATTERNS[name];
-  if (pat === undefined) return false;
-  return haptic(pat);
+const HAPTIC_STRENGTH = {light:0.62, medium:1, strong:1.5};
+// Scale the buzzes but never the silent gaps, or the rhythm falls apart.
+function hapticScaled(pat){
+  const k = HAPTIC_STRENGTH[store.hapStrength] || 1;
+  const round = v => Math.max(12, Math.round(v * k));
+  if (typeof pat === "number") return round(pat);
+  return pat.map((v,i)=> i % 2 === 0 ? round(v) : v);
 }
+function haptics(name){
+  const pat = HAPTIC_BASE[name];
+  if (pat === undefined) return false;
+  return haptic(hapticScaled(pat));
+}
+const HAPTIC_PATTERNS = HAPTIC_BASE;
 const HAPTIC_WEIGHT = [
-  {sel:"#runBtn",        ms:HAPTIC_PATTERNS.heartbeat},
-  {sel:".btn",           ms:16},
-  {sel:".tabb",          ms:9},
-  {sel:".segb",          ms:7},
-  {sel:".btn2,.gobtn,.qchip,.gear", ms:11}
+  {sel:"#runBtn",        ms:"heartbeat"},
+  {sel:".btn",           ms:"press"},
+  {sel:".tabb",          ms:"tap"},
+  {sel:".segb",          ms:20},
+  {sel:".btn2,.gobtn,.qchip,.gear,.manlink", ms:24}
 ];
 function hapticFor(target){
   if (!HAPTICS_OK || store.haptics!==1 || !target || !target.closest) return;
-  for (const w of HAPTIC_WEIGHT){ if (target.closest(w.sel)){ haptic(w.ms); return; } }
+  for (const w of HAPTIC_WEIGHT){
+    if (target.closest(w.sel)){
+      if (typeof w.ms === "string") haptics(w.ms);
+      else haptic(hapticScaled(w.ms));
+      return;
+    }
+  }
 }
 
 // ---------- v5.0: magnetic hover ----------
@@ -4259,6 +4311,53 @@ function renderCalibration(){
     <div class="calread"><b class="${sepCls}">${c.separation==null?"":(c.separation>0?"+":"")+c.separation+" pts \u2014 "}</b>${esc(c.reading)}</div>
     ${axes}
   </div>`;
+}
+
+// A verdict that appears instantly reads as a lookup. Walking the five axes one
+// at a time, with a tick on each, makes it read as work being done - and it
+// covers the live-data fetch honestly instead of with a bare spinner.
+let verdictSeq = 0;
+function renderAnalysing(axes, doneCount){
+  const box = $("verdictBox"); if (!box) return;
+  const rows = axes.map((a,i)=>{
+    const settled = i < doneCount;
+    const pct = settled ? (a.pct==null ? "-" : a.pct) : "";
+    return `<div class="ax ${settled?"done":"waiting"}">
+      <div class="axhead"><span class="axname">${esc(a.name)}</span>
+        <span class="axhint">${settled? esc(a.hint) : ""}</span>
+        <span class="axpct ${settled? (a.band||"") : ""}">${pct}</span></div>
+      <div class="axbar"><i class="${settled? (a.band||"") : ""}" style="width:${settled&&a.pct!=null?a.pct:0}%"></i></div>
+      <div class="axwhy">${settled? esc(a.why) : "checking"}</div>
+    </div>`;
+  }).join("");
+  box.innerHTML = `<div class="verdict analysing">
+    <div class="vtop">
+      <div class="score">${doneCount<axes.length ? "..." : ""}</div>
+      <div><div class="vlabel">WORKING IT OUT</div>
+      <div class="vsub">${doneCount}/${axes.length} checked</div></div>
+    </div>
+    <div class="axes">${rows}</div>
+    <div class="vscan"><i style="width:${Math.round(doneCount/axes.length*100)}%"></i></div>
+  </div>`;
+  show("sVerdict");
+}
+function playVerdictSequence(axes){
+  return new Promise(resolve=>{
+    const seq = ++verdictSeq;
+    if (Number(store.anim) === 0){ resolve(); return; }
+    const step = Math.round(170 * Number(store.anim));
+    renderAnalysing(axes, 0);
+    let i = 0;
+    const tick = ()=>{
+      if (seq !== verdictSeq) return;          // a newer run superseded this one
+      i++;
+      renderAnalysing(axes, i);
+      haptics("tick");
+      if (i < axes.length) setTimeout(tick, step);
+      else setTimeout(()=>{ if (seq===verdictSeq) resolve(); }, Math.round(260 * Number(store.anim)));
+    };
+    setTimeout(tick, step);
+  });
 }
 
 function renderVerdict(v, rule, dataOk, axes){
@@ -4989,6 +5088,8 @@ function syncSettingsUI(){
   $("fxOn").checked = store.fx===1;
   $("hapOn").checked = store.haptics===1 && HAPTICS_OK;
   $("hapOn").disabled = !HAPTICS_OK;
+  $("hapStr").value = store.hapStrength;
+  $("hapStr").disabled = !HAPTICS_OK;
   $("tsVal").textContent=Math.round(store.ts*100)+"%";
   $("zoomVal").textContent=Math.round(store.zoom*100)+"%";
 }
@@ -5680,7 +5781,10 @@ async function run(){
   const personal = personalFormat(store.hist);
   const rubricFor = d => buildRubric({scan, matched, yes, fmt, data:d, about:store.about,
                                       gameName:gEff, bucket, personal, ideaText:idea});
-  renderVerdict(combineVerdict(rule.pct, null), rule, null, rubricFor(null));
+  const firstAxes = rubricFor(null);
+  await playVerdictSequence(firstAxes);
+  haptics("heartbeat");
+  renderVerdict(combineVerdict(rule.pct, null), rule, null, firstAxes);
   renderBible(scan, matched, bucket, sharpens);
   renderAngles(genAngles(matched.map(m=>m.id), gEff, parts));
   renderTitles(genTitles(gEff, parts, matched, bill));
@@ -5808,6 +5912,13 @@ document.addEventListener("click", e=>{
   if (e.target && e.target.id==="lookUndo"){
     const u=store.lookUndo; if(!u) return;
     applyLookValues(u); store.lookUndo=null; syncSettingsUI(); renderPresets(); toast("Reverted");
+    return;
+  }
+  const ht = e.target.closest(".haptest");
+  if (ht){
+    if (!HAPTICS_OK) toast("This device has no vibration hardware");
+    else if (store.haptics!==1) toast("Haptics are switched off above");
+    else { haptics(ht.dataset.h); toast("Sent \u2014 feel nothing? Check Silent / Do Not Disturb"); }
     return;
   }
   const ml = e.target.closest(".manlink");
@@ -6234,7 +6345,8 @@ $("presetSave").addEventListener("click", ()=>{
 });
 $("glassRange").addEventListener("input", e=>{ store.glass=Number(e.target.value); applyGlass(); $("glassVal").textContent=store.glass+"%"; });
 $("fxOn").addEventListener("change", e=>{ store.fx = e.target.checked?1:0; applyGlass(); });
-$("hapOn").addEventListener("change", e=>{ store.haptics = e.target.checked?1:0; if (store.haptics===1) haptic([12,30,12]); });
+$("hapOn").addEventListener("change", e=>{ store.haptics = e.target.checked?1:0; if (store.haptics===1) haptics("done"); });
+$("hapStr").addEventListener("change", e=>{ store.hapStrength = e.target.value; haptics("heartbeat"); });
 $("scaleReset").addEventListener("click", ()=>{ store.ts=1; store.zoom=1; store.glass=60; store.fx=1;
   applyScale(); applyGlass();
   store.haptics=1; store.accent=70; store.density=1; store.anim=1;
