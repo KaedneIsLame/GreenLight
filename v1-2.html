@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GreenLight — Kaeden's Idea Verdict Machine</title>
+<meta name="theme-color" content="#0b0c13">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{
+  --bg:#0b0c13; --panel:#12141e; --panel2:#161926; --line:#242840;
+  --ink:#edeefa; --muted:#8d92a7; --faint:#4c5166;
+  --cyan:#42c8ff; --purple:#a17bf7; --green:#33d399; --yellow:#f6c445; --red:#f2555e; --blue:#5c8bef;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0; background:var(--bg);}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color:var(--ink); font-size:15px; line-height:1.55;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(161,123,247,.14), transparent 40%),
+    radial-gradient(circle at 90% 100%, rgba(66,200,255,.08), transparent 45%),
+    var(--bg);
+  min-height:100vh;
+}
+.wrap{max-width:780px; margin:0 auto; padding:18px 16px 80px;}
+header{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0 16px;}
+.brand{display:flex; align-items:center; gap:10px;}
+.mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--cyan),var(--purple));flex:none;}
+h1{font-size:19px; margin:0; letter-spacing:.2px;}
+h1 .accent{color:var(--cyan);}
+.sub{font-size:11.5px; color:var(--muted); margin-top:1px;}
+.gear{background:var(--panel); border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:8px 13px; font-size:13px; cursor:pointer;}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:13px; padding:16px; margin-bottom:14px;}
+label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:12px 0 5px; font-weight:600;}
+label:first-child{margin-top:0;}
+textarea,input[type=text],input[type=password],select{
+  width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line);
+  border-radius:9px; padding:11px 12px; font-size:15px; font-family:inherit; outline:none;
+}
+textarea:focus,input:focus,select:focus{border-color:var(--cyan);}
+textarea{min-height:74px; resize:vertical;}
+.row{display:flex; gap:10px; flex-wrap:wrap;}
+.row>div{flex:1; min-width:140px;}
+.checks{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
+.chk{display:flex; gap:9px; align-items:flex-start; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:9px 11px; cursor:pointer; font-size:13.5px;}
+.chk input{margin-top:2px; accent-color:var(--green);}
+.chk small{color:var(--muted); display:block; font-size:11.5px;}
+.btn{
+  display:inline-block; width:100%; margin-top:16px; background:linear-gradient(90deg,var(--cyan),var(--purple));
+  color:#08101c; border:none; border-radius:10px; padding:13px; font-size:16px; font-weight:800; cursor:pointer; letter-spacing:.3px;
+}
+.btn:disabled{opacity:.5;}
+.btn2{background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; cursor:pointer;}
+.keynote{font-size:11.5px; color:var(--faint); text-align:center; margin-top:9px;}
+.keynote b{color:var(--muted);}
+section{display:none;}
+section.show{display:block;}
+.secttl{font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted); margin:20px 0 8px; font-weight:700;}
+.verdict{border-radius:13px; padding:18px 16px; border:1px solid; margin-bottom:6px;}
+.verdict.green{background:rgba(51,211,153,.09); border-color:rgba(51,211,153,.55);}
+.verdict.yellow{background:rgba(246,196,69,.09); border-color:rgba(246,196,69,.55);}
+.verdict.red{background:rgba(242,85,94,.09); border-color:rgba(242,85,94,.55);}
+.vtop{display:flex; align-items:center; gap:14px;}
+.score{font-size:38px; font-weight:800; line-height:1;}
+.verdict.green .score{color:var(--green);} .verdict.yellow .score{color:var(--yellow);} .verdict.red .score{color:var(--red);}
+.vlabel{font-size:19px; font-weight:800;}
+.vsub{font-size:12.5px; color:var(--muted); margin-top:2px;}
+.window{margin-top:12px; background:rgba(0,0,0,.25); border-radius:9px; padding:10px 12px; font-size:13.5px;}
+.window b{color:var(--cyan);}
+.breakdown{margin-top:10px; font-size:12.5px; color:var(--muted);}
+.bar{height:6px; background:#1c2030; border-radius:3px; margin:4px 0 8px; overflow:hidden;}
+.bar i{display:block; height:100%; background:linear-gradient(90deg,var(--cyan),var(--purple)); border-radius:3px;}
+.chip{display:inline-block; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10px; background:#1c2030; color:var(--cyan); border:1px solid #2a3050; border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:middle;}
+.item{background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:12px 13px; margin-bottom:9px; font-size:14px;}
+.item .why{color:var(--muted); font-size:12.5px; margin-top:3px;}
+.item .ttl{font-weight:700;}
+.titlerow{display:flex; align-items:center; gap:8px;}
+.titlerow .t{flex:1;}
+.cnt{font-family:ui-monospace,monospace; font-size:10.5px; color:var(--faint); flex:none;}
+.cnt.over{color:var(--red);}
+.copy{flex:none; background:var(--panel2); border:1px solid var(--line); color:var(--muted); border-radius:6px; padding:4px 9px; font-size:11px; cursor:pointer;}
+.copy:active{color:var(--green); border-color:var(--green);}
+.pattpill{display:inline-block; font-size:10px; letter-spacing:.5px; text-transform:uppercase; color:var(--purple); border:1px solid var(--purple); border-radius:9px; padding:1px 8px; margin-bottom:5px;}
+.stat{display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+.stat:last-child{border-bottom:none;}
+.stat b{text-align:right;}
+.g{color:var(--green);} .y{color:var(--yellow);} .r{color:var(--red);} .c{color:var(--cyan);} .p{color:var(--purple);}
+.suggchips{display:flex; flex-wrap:wrap; gap:7px; margin-top:6px;}
+.sugg{background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:4px 11px; font-size:12.5px; color:var(--ink); cursor:pointer;}
+.sugg.hit{border-color:var(--green); color:var(--green);}
+.outv{display:block; text-decoration:none; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:9px 11px; margin-top:7px; font-size:13px;}
+.outv .m{color:var(--muted); font-size:11.5px; margin-top:2px;}
+.outv:active{border-color:var(--cyan);}
+.note{font-size:11.5px; color:var(--faint); margin-top:8px; line-height:1.5;}
+.err{background:rgba(242,85,94,.09); border:1px solid rgba(242,85,94,.5); color:var(--ink); border-radius:9px; padding:10px 12px; font-size:13px; margin-top:8px;}
+.hist{display:flex; justify-content:space-between; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line); font-size:13px; cursor:pointer;}
+.hist:last-child{border-bottom:none;}
+.hist .hs{font-weight:800; flex:none;}
+.modal{position:fixed; inset:0; background:rgba(5,6,10,.8); display:none; align-items:flex-start; justify-content:center; padding:24px 14px; overflow:auto; z-index:50;}
+.modal.show{display:flex;}
+.mcard{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; max-width:560px; width:100%;}
+.mcard h2{font-size:16px; margin:0 0 4px;}
+details{background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin-top:10px; font-size:13px;}
+summary{cursor:pointer; font-weight:600; color:var(--cyan); font-size:13px;}
+details ol{margin:8px 0 2px; padding-left:18px;}
+details li{margin-bottom:5px; color:var(--muted);}
+details a{color:var(--cyan);}
+.mrow{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+.spin{display:inline-block; width:14px; height:14px; border:2px solid var(--faint); border-top-color:var(--cyan); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:7px;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading{text-align:center; color:var(--muted); font-size:13px; padding:14px;}
+footer{margin-top:26px; text-align:center; font-size:10.5px; color:var(--faint); line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <h1>GREEN<span class="accent">LIGHT</span></h1>
+        <div class="sub">Kaeden's Idea Verdict Machine</div>
+      </div>
+    </div>
+    <button class="gear" id="gearBtn">Settings</button>
+  </header>
+
+  <div class="card">
+    <label>The video idea</label>
+    <textarea id="idea" placeholder="e.g. Beat Doors blind with Bill, no deaths allowed, 30-minute limit or we uninstall the game"></textarea>
+    <div class="row">
+      <div>
+        <label>Game</label>
+        <input type="text" id="game" placeholder="e.g. Doors, Fortnite, Pet Simulator">
+      </div>
+      <div>
+        <label>Bucket / category</label>
+        <select id="bucket">
+          <option value="auto">Auto-detect</option>
+          <option value="1">1 · Horror &amp; Reactions</option>
+          <option value="2">2 · Chaos &amp; Co-op</option>
+          <option value="3">3 · Challenges &amp; Grind</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" id="subRow" style="display:none">
+      <div>
+        <label>Exact Roblox game <span class="chip">better data</span></label>
+        <input type="text" id="subgame" placeholder="e.g. Doors, Pressure, Grow a Garden, Dress to Impress">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Format</label>
+        <select id="fmt">
+          <option value="long">Long-form</option>
+          <option value="short">Short</option>
+          <option value="both">Long-form + Shorts</option>
+        </select>
+      </div>
+      <div>
+        <label>Co-op</label>
+        <select id="bill">
+          <option value="no">Solo</option>
+          <option value="yes">With Bill / friend</option>
+        </select>
+      </div>
+    </div>
+    <label>The 3-Yes self-check <span class="chip">1.0 &sect;1.5</span></label>
+    <div class="checks">
+      <label class="chk"><input type="checkbox" id="y1"><span>I can write a title that makes <b>me</b> want to click it<small>You feel a small spike of excitement reading it back</small></span></label>
+      <label class="chk"><input type="checkbox" id="y2"><span>I know roughly what the thumbnail shows<small>You can describe the image in one sentence</small></span></label>
+      <label class="chk"><input type="checkbox" id="y3"><span>I know what "the end" looks like<small>Win, fail, discovery, or payoff — a real resolution</small></span></label>
+    </div>
+    <button class="btn" id="runBtn">RUN THE VERDICT</button>
+    <div class="keynote" id="keyStatus"></div>
+  </div>
+
+  <section id="sVerdict"><div id="verdictBox"></div></section>
+  <section id="sData">
+    <div class="secttl">Live Demand Data</div>
+    <div class="card" id="dataBox"></div>
+  </section>
+  <section id="sBible">
+    <div class="secttl">Checked Against The Bibles</div>
+    <div class="card" id="bibleBox"></div>
+  </section>
+  <section id="sAngles">
+    <div class="secttl">Other Angles To Consider</div>
+    <div id="anglesBox"></div>
+  </section>
+  <section id="sTitles">
+    <div class="secttl">Title Options (under 60 chars)</div>
+    <div id="titlesBox"></div>
+  </section>
+  <section id="sThumbs">
+    <div class="secttl">Thumbnail Directions</div>
+    <div id="thumbsBox"></div>
+  </section>
+  <section id="sWatch" class="show">
+    <div class="secttl">Trend Watchlist — what should I record this week?</div>
+    <div class="card" id="watchBox"></div>
+  </section>
+
+  <section id="sHist" class="show">
+    <div class="secttl">History &amp; 48-Hour Checks</div>
+    <div class="card" id="histBox"><div class="note">No verdicts yet. Run your first idea.</div></div>
+  </section>
+
+  <footer>
+    GreenLight v1.2 &middot; Rules distilled from Kaeden's Production Bible 1.0 &middot; Bible 2.0: The System &middot; The VanossMethod &middot; Ultimate Cheat Sheet (July 2026)<br>
+    Demand numbers are estimates from public YouTube data &mdash; direction over absolutes. All rights to Kaeden &middot; Built with Claude
+  </footer>
+</div>
+
+<div class="modal" id="setModal">
+  <div class="mcard">
+    <h2>Settings</h2>
+    <div class="note">GreenLight works offline using the Bible rule engine. Add a free YouTube API key to unlock live data: autocomplete demand, outlier scans, and trend windows.</div>
+    <label>YouTube Data API key (stored only on this device)</label>
+    <input type="password" id="keyInput" placeholder="AIza...">
+    <div class="mrow">
+      <button class="btn2" id="saveKeyBtn">Save key</button>
+      <button class="btn2" id="testKeyBtn">Test key</button>
+      <button class="btn2" id="clearKeyBtn">Remove key</button>
+    </div>
+    <div id="keyMsg" class="note"></div>
+    <details>
+      <summary>How to get a free key (5 minutes, no card needed)</summary>
+      <ol>
+        <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> and sign in with any Google account.</li>
+        <li>Create a project (top bar &rarr; New Project &rarr; name it anything).</li>
+        <li>Search "YouTube Data API v3" in the top search bar &rarr; open it &rarr; press <b>Enable</b>.</li>
+        <li>Left menu &rarr; Credentials &rarr; Create Credentials &rarr; <b>API key</b>. Copy it.</li>
+        <li>Paste it above and hit Save. Leave the key unrestricted (it's for personal use).</li>
+      </ol>
+      <div class="note">Free quota is 10,000 units/day &mdash; each verdict costs ~202 units, so roughly 49 full verdicts per day. Quota resets daily.</div>
+    </details>
+    <details>
+      <summary>Move this app + history to another device</summary>
+      <ol>
+        <li>Put this HTML file in Google Drive / iCloud / OneDrive and open it in any browser on any device. On iPad/Android use Share &rarr; Add to Home Screen for an app feel.</li>
+        <li>History and your key are saved per-device (in the browser). Use Export below to move history between devices.</li>
+      </ol>
+    </details>
+    <label style="margin-top:18px">Cross-device sync (free, via a private GitHub Gist)</label>
+    <div class="note">Your history, watchlist, AND YouTube API key get saved to a private note in YOUR GitHub account. Paste the same token on each device and everything stays in sync — set the API key up once, it follows you. Pulls when you open the app, pushes after changes.</div>
+    <input type="password" id="ghInput" placeholder="github_pat_... or ghp_..." style="margin-top:8px">
+    <div class="mrow">
+      <button class="btn2" id="saveGhBtn">Save token</button>
+      <button class="btn2" id="syncNowBtn">Sync now</button>
+      <button class="btn2" id="clearGhBtn">Remove token</button>
+    </div>
+    <div id="ghMsg" class="note"></div>
+    <details>
+      <summary>How to set up sync (3 minutes, free)</summary>
+      <ol>
+        <li>Make a free account at <a href="https://github.com" target="_blank" rel="noopener">github.com</a> if you don't have one.</li>
+        <li>Go to <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>
+        <li>Name it "greenlight", set expiration to 1 year.</li>
+        <li>Under <b>Account permissions</b> find <b>Gists</b> &rarr; set to <b>Read and write</b>. Nothing else needed.</li>
+        <li>Generate, copy the token, paste it above on EVERY device you use, hit Save then Sync now.</li>
+      </ol>
+      <div class="note">The token only grants access to gists (private notes) — not your code or account. Your YouTube API key syncs through the private gist; the GitHub token itself never syncs — it's the one thing you paste per device.</div>
+    </details>
+    <div class="mrow">
+      <button class="btn2" id="expBtn">Export history</button>
+      <button class="btn2" id="impBtn">Import history</button>
+      <button class="btn2" id="wipeBtn">Clear history</button>
+      <input type="file" id="impFile" accept=".json" style="display:none">
+    </div>
+    <div class="mrow"><button class="btn2" id="closeModal" style="margin-left:auto">Close</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+//==PURE== (rule engine distilled from the Production Bibles — no DOM in this block)
+
+const MARKERS = {
+  restriction: ["only","without","no ","never ","banned","can't","cant ","one item","single ","forbidden","not allowed"],
+  time: ["minute","hour","before the","until","timer","deadline","speedrun"," in 24","overnight","by the end"],
+  stakes: ["delete","uninstall","lose ","loser","bet ","forfeit","punish","or i ","or we ","consequence","3am","at stake"],
+  first: ["first time","blind","never played","brand new","know nothing"],
+  comeback: ["finally","rematch","came back","come back","revenge","last time","beat me before","again after"],
+  wrong: ["worst","wrong way","backwards","terrible strategy","bad strategy","most useless","on purpose"],
+  weird: ["weird","secret","hidden","mystery","broken","glitch","shouldn't exist","doesnt make sense","doesn't make sense","unexplained"],
+  social: ["being nice","helping every","every player","strangers","random players","social experiment","other players react"],
+  rank: ["ranked","rank every","tier list","worst to best","rated","rating every","every single"],
+  outcome: ["beat ","finish","max out","100%","win ","survive","escape","complete","hit level","unlock","reach "],
+  coop: ["bill","we ","together","duo","my friend","co-op","coop"]
+};
+
+function scanIdea(text){
+  const t = " " + (text||"").toLowerCase() + " ";
+  const hits = {};
+  let total = 0;
+  for (const cat in MARKERS){
+    hits[cat] = MARKERS[cat].filter(m => t.includes(m)).length;
+    total += hits[cat] ? 1 : 0;
+  }
+  const vague = /^\s*(i('| wi)ll |i want to |let'?s |just |playing |play )/.test((text||"").toLowerCase())
+    && !hits.restriction && !hits.time && !hits.stakes && !hits.first && !hits.outcome;
+  return { hits, total, vague };
+}
+
+const TEMPLATES = [
+  {id:"A", name:"The Impossible Challenge", ref:"1.0 §1.5-A", shorts:4,
+   why:"The restriction IS the hook — viewers instantly root for or against you.",
+   match:s=> s.hits.restriction>0,
+   title:g=>`I Tried to Beat ${g} Using Only [X]`,
+   thumb:"Your frustrated or determined face + the restricted item or impossible situation"},
+  {id:"B", name:"The First Timer", ref:"1.0 §1.5-B", shorts:5,
+   why:"Genuine ignorance = genuine reactions. You cannot fake not knowing something.",
+   match:s=> s.hits.first>0,
+   title:g=>`I Played ${g} For the First Time and I Was NOT Ready`,
+   thumb:"Your confused or shocked face + a game element that looks alarming with zero context"},
+  {id:"C", name:"The Rematch", ref:"1.0 §1.5-C", shorts:3,
+   why:"Built-in backstory and stakes — redemption arcs are the oldest reliable story there is.",
+   match:s=> s.hits.comeback>0,
+   title:g=>`${g} Beat Me Last Time. Not Today.`,
+   thumb:"Determined expression + the boss/challenge that beat you before"},
+  {id:"D", name:"The Time Limit", ref:"1.0 §1.5-D", shorts:4,
+   why:"The clock attaches stakes to every second of footage.",
+   match:s=> s.hits.time>0,
+   title:g=>`I Had [X Minutes] to [Goal] in ${g}`,
+   thumb:"A visible/implied timer + your stressed reaction"},
+  {id:"E", name:"The Worst Strategy", ref:"1.0 §1.5-E", shorts:3,
+   why:"Schadenfreude + curiosity — both failure and success are satisfying endings.",
+   match:s=> s.hits.wrong>0,
+   title:g=>`I Beat ${g} Using the Worst Strategy Possible`,
+   thumb:"The obviously wrong choice on screen + your reaction to how it's going"},
+  {id:"F", name:"The Co-op Disaster", ref:"1.0 §1.5-F", shorts:5,
+   why:"Two reactions, two personalities, one disaster — friend fails are the most clippable content online.",
+   match:(s,bill)=> bill && (s.hits.coop>0 || s.hits.stakes>0 || s.hits.outcome>0),
+   title:g=>`We Tried to [Goal] in ${g} and It Went Horribly Wrong`,
+   thumb:"Both faces — one panicking, one mid-mistake"},
+  {id:"G", name:"The Investigation", ref:"1.0 §1.5-G", shorts:3,
+   why:"Curiosity gap — viewers solve the mystery alongside you and can't click away.",
+   match:s=> s.hits.weird>0,
+   title:g=>`Something Weird Is Happening in ${g}`,
+   thumb:"The unexplained element + your genuinely confused expression"},
+  {id:"H", name:"The Social Experiment", ref:"1.0 §1.5-H", shorts:3,
+   why:"Real strangers are unpredictable — they ARE the content, you're the catalyst.",
+   match:s=> s.hits.social>0,
+   title:g=>`I Tried Being [Nice/Chaotic] in ${g} and This Happened`,
+   thumb:"Other players' reactions + your face watching it unfold"},
+  {id:"I", name:"The Rating Run", ref:"1.0 §1.5-I", shorts:2,
+   why:"Opinion content drives comments, and comments drive the algorithm.",
+   match:s=> s.hits.rank>0,
+   title:g=>`Every [Thing] in ${g} Ranked Worst to Best`,
+   thumb:"Tier list visual OR your reaction to the worst/best entry"},
+  {id:"J", name:"The Challenge Bet", ref:"1.0 §1.5-J", shorts:4,
+   why:"Personal stakes beat game stakes — viewers want to watch YOU squirm, not just the character.",
+   match:(s,bill)=> s.hits.stakes>0 && (bill || s.hits.coop>0),
+   title:g=>`If I Lose This ${g} Bet, [Consequence]`,
+   thumb:"Both faces + a visual hint of the personal consequence"}
+];
+
+function classify(scan, bill){
+  return TEMPLATES.filter(t=>t.match(scan,bill));
+}
+
+function detectBucket(scan, bill, chosen){
+  if (chosen && chosen!=="auto") return chosen;
+  if (bill || scan.hits.coop>1) return "2";
+  if (scan.hits.first>0 || scan.hits.weird>0) return "1";
+  return "3";
+}
+
+const BUCKETS = {
+  "1":{name:"Horror & Reactions", ref:"1.0 §24", hook:"Your real reaction IS the content. Play blind, never preview."},
+  "2":{name:"Chaos & Co-op", ref:"1.0 §24", hook:"The disaster writes itself — set up the situation, react genuinely."},
+  "3":{name:"Challenges & Grind", ref:"1.0 §24", hook:"Set an impossible-seeming target and don't stop until you hit it."}
+};
+
+function goalPhrase(idea){
+  let s = (idea||"").trim()
+    .replace(/^(i('| wi)ll|i want to|i'?m going to|i am going to|let'?s|trying to|i try to|we('| wi)ll|we want to)\s+/i,"")
+    .replace(/\.$/,"");
+  if (s.length>1) s = s.charAt(0).toUpperCase()+s.slice(1);
+  return s;
+}
+
+function ruleScore(scan, matched, yes, fmt){
+  const rows = [];
+  // Specificity (0-30)
+  let spec = Math.min(30, (scan.hits.restriction?8:0)+(scan.hits.time?7:0)+(scan.hits.first?8:0)+(scan.hits.weird?6:0)+(scan.hits.wrong?5:0)+(scan.hits.rank?4:0)+(scan.hits.social?5:0)+(scan.hits.comeback?6:0));
+  if (scan.vague) spec = Math.min(spec, 6);
+  rows.push({label:"Specificity — is this a concept or just a session?", pts:spec, max:30, ref:"1.0 §1.5"});
+  // Story completeness (0-20)
+  let story = (scan.hits.outcome?10:0) + (scan.hits.stakes?10:0);
+  rows.push({label:"Story — known ending + real stakes", pts:story, max:20, ref:"1.0 §1.5 / 2.0 §16"});
+  // Clickability prior from matched templates (0-20)
+  let click = 0;
+  if (matched.length){
+    const best = Math.max(...matched.map(t=>t.shorts));
+    click = ({5:20,4:17,3:13,2:9})[best] || 8;
+  } else click = 4;
+  rows.push({label:"Template strength — proven format match", pts:click, max:20, ref:"1.0 §1.5"});
+  // Format sanity (0-10)
+  let fpts = 8;
+  if (fmt==="short" && matched.some(t=>t.shorts>=4)) fpts = 10;
+  if (fmt==="short" && matched.length && Math.max(...matched.map(t=>t.shorts))<=2) fpts = 4;
+  rows.push({label:"Format fit", pts:fpts, max:10, ref:"1.0 §30"});
+  // 3-Yes self-check (0-20)
+  const ypts = (yes[0]?7:0)+(yes[1]?6:0)+(yes[2]?7:0);
+  rows.push({label:"Your 3-Yes self-check", pts:ypts, max:20, ref:"1.0 §1.5"});
+  const total = rows.reduce((a,r)=>a+r.pts,0);
+  return { rows, total, pct: Math.round(total) };
+}
+
+function sharpenLadder(scan, game){
+  const g = game || "[game]";
+  const out = [];
+  if (!scan.hits.restriction) out.push({fix:"Add a restriction", ex:`…but I can only use [one item / no upgrades / my worst loadout] in ${g}`, ref:"1.0 §1.5"});
+  if (!scan.hits.time) out.push({fix:"Add a timer", ex:`…with a [30-minute] limit before [consequence]`, ref:"1.0 §1.5"});
+  if (!scan.hits.stakes) out.push({fix:"Add a consequence", ex:`…or I [delete my save / stream at 3AM / let Bill pick my next 3 videos]`, ref:"2.0 C3"});
+  if (!scan.hits.outcome) out.push({fix:"Name the ending", ex:"What does DONE look like — win, fail, discovery, or payoff? Say it in the premise.", ref:"1.0 §1.5"});
+  return out;
+}
+
+function genAngles(matchedIds, game, parts){
+  const g = game || "[game]";
+  const pool = TEMPLATES.filter(t=>!matchedIds.includes(t.id));
+  pool.sort((a,b)=> b.shorts - a.shorts);
+  return pool.slice(0,4).map(t=>({
+    name:t.name, ref:t.ref, shorts:t.shorts, why:t.why, title:fillTemplate(t,g,parts), thumb:t.thumb
+  }));
+}
+
+function genTitles(game, parts, matched, bill){
+  const g = game || "[Game]";
+  const p = parts || {};
+  const we = bill? "We" : "I";
+  const goal = p.goal? titleCase(p.goal) : null;
+  const T = [];
+  // Built FROM your actual idea first
+  if (goal) T.push({p:"Contrast", t:`${we} Tried to ${goal} and It Went Horribly Wrong`});
+  if (goal && p.stakes) T.push({p:"Challenge Bet", t:`${goal} or ${titleCase(p.stakes)}`});
+  if (p.time) T.push({p:"Time Limit", t:`${p.time} to ${goal||("Beat "+g)}${p.stakes? " or "+titleCase(p.stakes):""}`});
+  if (p.restriction){
+    const r = titleCase(p.restriction.txt);
+    T.push({p:"Impossible Challenge", t: p.restriction.type==="only"? `${we} Beat ${g} Using Only ${r}` : p.restriction.type==="without"? `${we} Beat ${g} Without ${r}` : `${we} Beat ${g} With One Rule: No ${r}`});
+  }
+  if (p.blind) T.push({p:"First Timer", t:`${we} Went Into ${g} Knowing NOTHING`});
+  // Pattern fillers
+  T.push({p:"Negative Frame", t:`This ${g} Run Completely Broke ${bill?"Us":"Me"}`});
+  T.push({p:"Curiosity Tease", t: bill? `He Should NOT Be Allowed to Play ${g}` : `Something in ${g} Made No Sense (I Found Out Why)`});
+  T.push({p:"Contrast", t:`${g} Looked Easy. It Was NOT.`});
+  // Matched-template formulas, filled from the idea where possible
+  matched.slice(0,3).forEach(m=> T.push({p:m.name, t:fillTemplate(m,g,p)}));
+  // De-dupe + attach char counts
+  const seen = new Set();
+  return T.filter(x=>{ const k=x.t.toLowerCase(); if(seen.has(k))return false; seen.add(k); return true; })
+          .map(x=>({...x, n:x.t.length, over:x.t.length>60}));
+}
+
+function genThumbs(bucket, bill, matched){
+  const out = [];
+  out.push({ttl:"Your base formula", why:"Face + game moment + 2–3 bold words. Facecam left, game right, expression matches the title's energy. 3 colors max, glance-test at tiny size.", ref:"1.0 §14"});
+  if (bucket==="1") out.push({ttl:"Bucket 1 — Horror", why:"Your most terrified expression + the scariest visual from the game. Emotion sells it, not information.", ref:"1.0 §24"});
+  if (bucket==="2"||bill) out.push({ttl:"Bucket 2 — Co-op", why:"BOTH faces — one panicking, one mid-mistake. Two faces = double the emotional information in one image.", ref:"1.0 §26"});
+  if (bucket==="3") out.push({ttl:"Bucket 3 — Grind", why:"Your reaction + the goal made visible: the big number, the unlock, the final boss.", ref:"1.0 §24"});
+  matched.slice(0,2).forEach(m=> out.push({ttl:`${m.name} direction`, why:m.thumb, ref:m.ref}));
+  out.push({ttl:"Story-lock check", why:"Title asks the question, thumbnail answers it emotionally — never the same info twice.", ref:"1.0 §3 / §13"});
+  return out;
+}
+
+// ---------- Idea parsing (v1.1 — titles/angles built FROM the actual idea) ----------
+function titleCase(s){
+  const small = new Set(["a","an","the","of","in","on","to","or","and","for","with","at","by"]);
+  return String(s||"").trim().split(/\s+/).map((w,i)=> (i>0 && small.has(w.toLowerCase()))? w.toLowerCase() : w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
+}
+
+function parseIdea(idea){
+  const raw = (idea||"").trim();
+  const lower = raw.toLowerCase();
+  const out = {goal:null, restriction:null, stakes:null, time:null, blind:false};
+  out.blind = /\b(blind|first time|never played)\b/.test(lower);
+  const tm = lower.match(/(\d+)[\s-]*(minute|min\b|hour|hr)s?/);
+  if (tm) out.time = tm[1] + " " + (tm[2].startsWith("h")? "Hour":"Minute") + (tm[1]==="1"?"":"s");
+  const st = raw.match(/\bor\s+(we|i)\s+([^,.;]{3,40})/i);
+  if (st) out.stakes = (st[1]+" "+st[2]).trim().toLowerCase();
+  let rm = raw.match(/\b(?:using\s+)?only\s+([a-z0-9' -]{3,30})/i);
+  if (rm) out.restriction = {type:"only", txt:rm[1].trim()};
+  if (!out.restriction){ rm = raw.match(/\bwithout\s+([a-z0-9' -]{3,30})/i); if (rm) out.restriction = {type:"without", txt:rm[1].trim()}; }
+  if (!out.restriction){ rm = raw.match(/\bno\s+([a-z0-9' -]{3,25}?)(?:\s+(?:allowed|rule)|\s*[,.;]|\s*$)/i); if (rm) out.restriction = {type:"no", txt:rm[1].trim()}; }
+  let g = goalPhrase((raw.split(/[,.;]|\bor\b/i)[0]||raw).trim());
+  g = g.replace(/\s+(with|and)\s+bill\b/i,"").replace(/\s+(with|and)\s+my friend\b/i,"").trim();
+  if (g.length>2 && g.length<=44) out.goal = g;
+  return out;
+}
+
+function fillTemplate(t, g, parts){
+  const p = parts||{};
+  const goal = p.goal? titleCase(p.goal) : null;
+  switch(t.id){
+    case "A": {
+      if (!p.restriction) return t.title(g);
+      const r = titleCase(p.restriction.txt);
+      const base = goal||("Beat "+g);
+      return p.restriction.type==="only"? `I Tried to ${base} Using Only ${r}`
+           : p.restriction.type==="without"? `I Tried to ${base} Without ${r}`
+           : `I Tried to ${base} — Zero ${r} Allowed`;
+    }
+    case "B": return goal? `First Time Trying to ${goal} — NOT Ready` : t.title(g);
+    case "D": return p.time? `${p.time} to ${goal||("Beat "+g)}` : t.title(g);
+    case "F": return goal? `We Tried to ${goal} and It Went Horribly Wrong` : t.title(g);
+    case "J": return p.stakes? `${goal||("Win at "+g)} or ${titleCase(p.stakes)}` : t.title(g);
+    default: return t.title(g);
+  }
+}
+
+// ---------- 48-Hour Check diagnostics (1.0 §7 / §35, 2.0 §14 / C4) ----------
+function diagnose48(ctr, avd){
+  const c = Number(ctr), a = Number(avd);
+  if (!(c>=0) || !(a>=0)) return null;
+  if (c<5 && a>=40) return {cls:"y", tag:"PACKAGING", txt:"The video's fine — the billboard isn't. Swap this video's thumbnail/title, and study what didn't pop. (1.0 §7, §35)"};
+  if (c>=5 && a<40) return {cls:"y", tag:"HOOK", txt:"They clicked, then left. The first 60 seconds broke the promise — fix the open on the next video. (1.0 §7)"};
+  if (c<5 && a<40) return {cls:"r", tag:"CONCEPT", txt:"Both low = the idea itself. Next loop starts with a sharper premise. Data point, not report card. (2.0 C4)"};
+  if (c>=8 && a>=45) return {cls:"g", tag:"WINNER", txt:"Strong CTR + strong retention. Write down exactly what this packaging did — then replicate it. (1.0 §35)"};
+  return {cls:"g", tag:"SOLID", txt:"Healthy for gaming (CTR 8–12% strong, AVD 40–50% healthy). Better than your last three = a win. (2.0 §14)"};
+}
+
+// ---------- Watchlist heat (pure) ----------
+function watchHeat(rows){
+  const now = Date.now();
+  rows.forEach(r=>{ r.ageDays=Math.max(1,Math.round((now-new Date(r.publishedAt).getTime())/86400000)); r.vpd=r.views/r.ageDays; r.ratio=r.subs>0? r.views/r.subs:0; });
+  const hot = rows.filter(r=>r.ageDays<=14), prev = rows.filter(r=>r.ageDays>14);
+  const mh = median(hot.map(r=>r.vpd)), mp = median(prev.map(r=>r.vpd));
+  const medViews = median(rows.map(r=>r.views));
+  const top = rows.filter(r=>r.ratio>=5 && r.views>=10000).sort((a,b)=>b.ratio-a.ratio)[0]||null;
+  let status="QUIET", cls="y";
+  if (hot.length>=4 && mh>mp*1.6 && medViews>=2000){ status="SPIKING"; cls="g"; }
+  else if (medViews>=5000){ status="ACTIVE"; cls="c"; }
+  return {status, cls, medViews, uploads30d:rows.length, top, heat:Math.round(mh)};
+}
+
+// ---------- Sync merge (pure) ----------
+function mergeState(local, remote){
+  const L=local||{}, R=remote||{};
+  const byId={};
+  [...(R.hist||[]), ...(L.hist||[])].forEach(h=>{
+    if(!h || !h.id) return;
+    const cur = byId[h.id];
+    if (!cur || (h.mts||h.ts||0) > (cur.mts||cur.ts||0)) byId[h.id]=h;
+  });
+  const hist = Object.values(byId).sort((a,b)=>b.ts-a.ts).slice(0,80);
+  const seen = new Set(); const watch=[];
+  [...(L.watch||[]), ...(R.watch||[])].forEach(w=>{
+    const k=(w.q||"").toLowerCase();
+    if (k && !seen.has(k)){ seen.add(k); watch.push(w); }
+  });
+  // YouTube API key: newest change wins (so adding OR removing propagates)
+  const lm = L.ytKeyMts||0, rm = R.ytKeyMts||0;
+  const ytKey = (rm>lm ? R.ytKey : L.ytKey) || "";
+  const ytKeyMts = Math.max(lm, rm);
+  return {v:1, updated:Date.now(), hist, watch, ytKey, ytKeyMts};
+}
+
+// ---------- Live-data math (pure) ----------
+function median(arr){
+  if(!arr.length) return 0;
+  const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2);
+  return s.length%2 ? s[m] : Math.round((s[m-1]+s[m])/2);
+}
+function fmtNum(n){
+  if(n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,"")+"M";
+  if(n>=1e3) return (n/1e3).toFixed(1).replace(/\.0$/,"")+"K";
+  return String(n);
+}
+function computeMetrics(rows, autoHits){
+  const now = Date.now();
+  rows.forEach(r=>{
+    r.ageDays = Math.max(1, Math.round((now - new Date(r.publishedAt).getTime())/86400000));
+    r.vpd = r.views / r.ageDays;
+    r.ratio = r.subs>0 ? r.views/r.subs : 0;
+  });
+  const recent = rows.filter(r=>r.ageDays<=90);
+  const medianRecentViews = median(recent.map(r=>r.views));
+  const outliers = rows.filter(r=> r.subs>0 && r.ratio>=5 && r.views>=10000)
+                       .sort((a,b)=>b.ratio-a.ratio);
+  const openLane = outliers.filter(r=>r.subs<=500000).length;
+  const megaShare = rows.length ? rows.filter(r=>r.subs>1e6).length/rows.length : 0;
+  const hot = rows.filter(r=>r.ageDays<=14), mid = rows.filter(r=>r.ageDays>14&&r.ageDays<=45), old = rows.filter(r=>r.ageDays>45&&r.ageDays<=120);
+  const mh = median(hot.map(r=>r.vpd)), mm = median(mid.map(r=>r.vpd)), mo = median(old.map(r=>r.vpd));
+  let phase = "unknown", windowTxt = "Not enough recent uploads to read a trend — treat as evergreen: no deadline, quality over speed.";
+  if (hot.length>=3 && mid.length>=3){
+    if (mh > mm*1.5){ phase="rising"; windowTxt = "<b>Rising wave.</b> The window is open NOW — record within days and aim to publish inside ~5–7 days. Waves like this crest fast."; }
+    else if (mh < mm*0.5){ phase = mm < mo*0.75 ? "decaying" : "cooling"; windowTxt = phase==="decaying" ? "<b>Wave has passed.</b> Interest is decaying — you'd need a genuinely fresh angle, or treat this as evergreen and take your time." : "<b>Cooling.</b> Still viable but slowing — publish within ~2 weeks or re-angle."; }
+    else { phase="steady"; windowTxt = "<b>Steady interest.</b> No panic window — publish within ~2–3 weeks while it's active. Consistency beats speed here."; }
+  } else if (rows.length>=8 && medianRecentViews===0){
+    phase="evergreen"; windowTxt = "<b>Evergreen topic.</b> Little recent upload activity but a stable back catalog — no deadline. Quality over speed.";
+  } else if (rows.length>=8){
+    phase="evergreen"; windowTxt = "<b>Evergreen-leaning.</b> Uploads trickle steadily — no hard deadline. A sharper angle matters more than timing.";
+  }
+  // Data score out of 90 -> normalized 0-100
+  let demand = medianRecentViews>=100000?35: medianRecentViews>=20000?28: medianRecentViews>=5000?20: medianRecentViews>=1000?12:5;
+  let lane = openLane>=3?25: openLane>=1?18: (megaShare>0.7?5:12);
+  let auto = autoHits>=3?15: autoHits>=1?10:3;
+  let trend = ({rising:15, steady:10, evergreen:10, cooling:4, decaying:2, unknown:7})[phase];
+  const dataPct = Math.round((demand+lane+auto+trend)/90*100);
+  return { medianRecentViews, outliers: outliers.slice(0,3), openLane, megaShare, phase, windowTxt, dataPct,
+           counts:{hot:hot.length, mid:mid.length, old:old.length, total:rows.length},
+           tiny: (medianRecentViews<1000 && autoHits===0) };
+}
+
+function combineVerdict(rulePct, data){
+  let score, note;
+  if (data && !data.error){
+    score = Math.round(rulePct*0.55 + data.dataPct*0.45);
+    note = "55% Bible rules + 45% live YouTube data";
+    if (data.tiny && score>65){ score=65; note += " — capped: demand signals are tiny (passion-pick territory, 2.0 §23)"; }
+  } else {
+    score = rulePct; note = "Bible rules only — add an API key in Settings for live demand data";
+  }
+  const v = score>=72 ? {cls:"green", label:"GREENLIGHT", sub:"This idea has earned a recording session. That's all any idea can earn before it exists."}
+        : score>=48 ? {cls:"yellow", label:"SHARPEN IT", sub:"The core is there — run the sharpening ladder below, then re-test. Two passes rescue most ideas."}
+        : {cls:"red", label:"RE-ANGLE", sub:"Don't abandon it — re-frame it. Pick one of the angles below and run the verdict again."};
+  return { score, note, ...v };
+}
+//==ENDPURE==
+// ---------- Live YouTube data layer ----------
+const API = "https://www.googleapis.com/youtube/v3/";
+
+async function yt(endpoint, params, key){
+  const q = new URLSearchParams({...params, key});
+  const res = await fetch(API+endpoint+"?"+q.toString());
+  const j = await res.json();
+  if (j.error){
+    const reason = (j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || "";
+    if (reason==="quotaExceeded") throw new Error("Daily API quota used up — resets at midnight Pacific. Rule-engine verdicts still work.");
+    if (reason.includes("keyInvalid") || res.status===400) throw new Error("API key looks invalid — check it in Settings.");
+    if (res.status===403) throw new Error("API refused the request ("+(j.error.message||"403")+"). Make sure YouTube Data API v3 is ENABLED for your key's project.");
+    throw new Error(j.error.message || "YouTube API error");
+  }
+  return j;
+}
+
+function jsonpAutocomplete(query){
+  return new Promise(resolve=>{
+    const cb = "glac_" + Math.random().toString(36).slice(2);
+    const s = document.createElement("script");
+    const timer = setTimeout(()=>{ cleanup(); resolve(null); }, 4500);
+    function cleanup(){ clearTimeout(timer); delete window[cb]; s.remove(); }
+    window[cb] = data => { cleanup(); try{ resolve((data[1]||[]).map(x=>Array.isArray(x)?x[0]:x)); }catch(e){ resolve(null); } };
+    s.src = "https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&callback="+cb+"&q="+encodeURIComponent(query);
+    s.onerror = ()=>{ cleanup(); resolve(null); };
+    document.head.appendChild(s);
+  });
+}
+
+function ideaKeywords(idea, game){
+  const stop = new Set(["the","and","with","this","that","game","play","playing","only","just","have","will","into","from","what","when","were","been","them","then","than","some","very","cant","dont","wont","before","after","first","time","every","using"]);
+  return (idea||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/)
+    .filter(w=>w.length>3 && !stop.has(w) && w!==(game||"").toLowerCase()).slice(0,4);
+}
+
+async function fetchLiveData(key, idea, game){
+  const g = (game||"").trim();
+  const kws = ideaKeywords(idea, g);
+  const topicQuery = (g + " " + kws.slice(0,2).join(" ")).trim() || (idea||"").slice(0,60);
+
+  // 1) Autocomplete demand (JSONP, no quota cost)
+  let suggestions = [], autoHits = 0;
+  if (g){
+    const runs = await Promise.all([jsonpAutocomplete(g), kws.length? jsonpAutocomplete(g+" "+kws[0]) : Promise.resolve(null)]);
+    const merged = [...new Set([].concat(...runs.filter(Boolean)))].slice(0,14);
+    suggestions = merged.map(s=>({s, hit: kws.some(k=>s.toLowerCase().includes(k))}));
+    autoHits = suggestions.filter(x=>x.hit).length;
+  }
+
+  // 2) Search: recent 90d + all-time relevance (100 units each)
+  const after = new Date(Date.now()-90*86400000).toISOString();
+  const [recent, top] = await Promise.all([
+    yt("search",{part:"snippet", q:topicQuery, type:"video", maxResults:"25", order:"date", publishedAfter:after}, key),
+    yt("search",{part:"snippet", q:topicQuery, type:"video", maxResults:"25", order:"relevance"}, key)
+  ]);
+  const items = [...(recent.items||[]), ...(top.items||[])];
+  const vidIds = [...new Set(items.map(i=>i.id && i.id.videoId).filter(Boolean))].slice(0,50);
+  if (!vidIds.length) return { error:"No videos found for this topic — either brand new territory or the query needs a simpler game name.", suggestions, autoHits, topicQuery };
+
+  // 3) Stats (1 unit) + channel subs (1 unit)
+  const vids = await yt("videos",{part:"statistics,snippet", id:vidIds.join(",")}, key);
+  const chIds = [...new Set((vids.items||[]).map(v=>v.snippet.channelId))].slice(0,50);
+  const chans = await yt("channels",{part:"statistics", id:chIds.join(",")}, key);
+  const subMap = {};
+  (chans.items||[]).forEach(c=>{ subMap[c.id] = Number(c.statistics.subscriberCount||0); });
+
+  const rows = (vids.items||[]).map(v=>({
+    id:v.id, title:v.snippet.title, channel:v.snippet.channelTitle,
+    publishedAt:v.snippet.publishedAt,
+    views:Number(v.statistics.viewCount||0),
+    subs: subMap[v.snippet.channelId]||0
+  }));
+  const m = computeMetrics(rows, autoHits);
+  return { ...m, suggestions, autoHits, topicQuery };
+}
+
+// ---------- Watchlist scanner (~102 quota units per game) ----------
+async function scanWatch(key, list){
+  const out = [];
+  for (const w of list.slice(0,8)){
+    try{
+      const after = new Date(Date.now()-30*86400000).toISOString();
+      const sr = await yt("search",{part:"snippet", q:w.q, type:"video", maxResults:"20", order:"date", publishedAfter:after}, key);
+      const ids = (sr.items||[]).map(i=>i.id && i.id.videoId).filter(Boolean);
+      if (!ids.length){ out.push({...w, empty:true}); continue; }
+      const vs = await yt("videos",{part:"statistics,snippet", id:ids.join(",")}, key);
+      const chIds = [...new Set((vs.items||[]).map(v=>v.snippet.channelId))];
+      const cs = await yt("channels",{part:"statistics", id:chIds.join(",")}, key);
+      const sm = {}; (cs.items||[]).forEach(c=> sm[c.id]=Number(c.statistics.subscriberCount||0));
+      const rows = (vs.items||[]).map(v=>({id:v.id, title:v.snippet.title, channel:v.snippet.channelTitle, publishedAt:v.snippet.publishedAt, views:Number(v.statistics.viewCount||0), subs:sm[v.snippet.channelId]||0}));
+      out.push({...w, ...watchHeat(rows)});
+    }catch(e){
+      out.push({...w, error:e.message});
+      if (/quota/i.test(e.message||"")) break;
+    }
+  }
+  return out;
+}
+
+// ---------- Cross-device sync via private GitHub Gist ----------
+async function gh(path, opts, token){
+  const res = await fetch("https://api.github.com/"+path, {...(opts||{}), headers:{
+    "Authorization":"Bearer "+token, "Accept":"application/vnd.github+json",
+    ...((opts && opts.body)? {"Content-Type":"application/json"} : {})
+  }});
+  if (res.status===401) throw new Error("GitHub token invalid or expired.");
+  if (res.status===403) throw new Error("GitHub said no (rate limit or token missing Gists permission).");
+  if (!res.ok) throw new Error("GitHub error "+res.status);
+  return res.status===204? null : res.json();
+}
+async function gistFind(token){
+  const list = await gh("gists?per_page=100", {}, token);
+  const g = (list||[]).find(x=> x.files && x.files["greenlight.json"]);
+  return g? g.id : null;
+}
+async function gistPull(token, id){
+  const g = await gh("gists/"+id, {}, token);
+  const f = g.files && g.files["greenlight.json"];
+  if (!f) return null;
+  let content = f.content;
+  if (f.truncated){ const r = await fetch(f.raw_url); content = await r.text(); }
+  try{ return JSON.parse(content); }catch(e){ return null; }
+}
+async function gistPush(token, id, state){
+  const body = JSON.stringify({description:"GreenLight sync (Kaeden's Idea Machine)", public:false, files:{"greenlight.json":{content:JSON.stringify(state)}}});
+  if (id){ await gh("gists/"+id, {method:"PATCH", body}, token); return id; }
+  const g = await gh("gists", {method:"POST", body}, token);
+  return g.id;
+}
+// ---------- App layer (DOM) ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = {
+  get key(){ try{return localStorage.getItem("gl_key")||"";}catch(e){return "";} },
+  set key(v){ try{ v?localStorage.setItem("gl_key",v):localStorage.removeItem("gl_key"); }catch(e){} },
+  get hist(){ try{return JSON.parse(localStorage.getItem("gl_hist")||"[]");}catch(e){return [];} },
+  set hist(v){ try{localStorage.setItem("gl_hist",JSON.stringify(v.slice(0,80)));}catch(e){} },
+  get watch(){ try{return JSON.parse(localStorage.getItem("gl_watch")||"[]");}catch(e){return [];} },
+  set watch(v){ try{localStorage.setItem("gl_watch",JSON.stringify(v.slice(0,8)));}catch(e){} },
+  get gh(){ try{return localStorage.getItem("gl_gh")||"";}catch(e){return "";} },
+  set gh(v){ try{ v?localStorage.setItem("gl_gh",v):localStorage.removeItem("gl_gh"); }catch(e){} },
+  get gistid(){ try{return localStorage.getItem("gl_gistid")||"";}catch(e){return "";} },
+  set gistid(v){ try{ v?localStorage.setItem("gl_gistid",v):localStorage.removeItem("gl_gistid"); }catch(e){} },
+  get keyMts(){ try{return Number(localStorage.getItem("gl_keymts")||0);}catch(e){return 0;} },
+  set keyMts(v){ try{localStorage.setItem("gl_keymts",String(v||0));}catch(e){} }
+};
+
+// ---------- sync plumbing ----------
+function localState(){ return {v:1, updated:Date.now(), hist:store.hist, watch:store.watch, ytKey:store.key, ytKeyMts:store.keyMts}; }
+function applyState(s){
+  store.hist=s.hist||[]; store.watch=s.watch||[];
+  if (typeof s.ytKey==="string" && s.ytKey!==store.key){ store.key=s.ytKey; store.keyMts=s.ytKeyMts||Date.now(); }
+  renderHist(); renderWatch(null); keyStatus();
+}
+let syncTimer = null, syncing = false;
+function ghStatus(msg){ const el=$("ghMsg"); if(el) el.textContent = msg; keyStatus(); }
+async function syncNow(quiet){
+  const tok = store.gh; if (!tok) { if(!quiet) ghStatus("No token saved yet."); return; }
+  if (syncing) return; syncing = true;
+  if (!quiet) ghStatus("Syncing…");
+  try{
+    let id = store.gistid || await gistFind(tok);
+    const remote = id? await gistPull(tok, id) : null;
+    const merged = mergeState(localState(), remote);
+    applyState(merged);
+    id = await gistPush(tok, id, merged);
+    store.gistid = id;
+    ghStatus("✓ Synced "+new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+  }catch(e){ ghStatus("Sync failed: "+(e.message||e)); }
+  syncing = false;
+}
+function schedulePush(){ if (!store.gh) return; clearTimeout(syncTimer); syncTimer = setTimeout(()=>syncNow(true), 3000); }
+
+function keyStatus(){
+  const sync = store.gh ? ' · <b class="c">Sync ON</b>' : '';
+  $("keyStatus").innerHTML = (store.key
+    ? '<b class="g">Live data ON</b> — verdicts use Bible rules + real YouTube demand data'
+    : 'Live data OFF — running on the Bible rule engine. Add a free API key in <b>Settings</b> to unlock demand, outliers &amp; trend windows.') + sync;
+}
+
+function show(id){ $(id).classList.add("show"); }
+
+function renderVerdict(v, rule, dataOk){
+  show("sVerdict");
+  $("verdictBox").innerHTML = `
+  <div class="verdict ${v.cls}">
+    <div class="vtop">
+      <div class="score">${v.score}</div>
+      <div><div class="vlabel">${v.label}</div><div class="vsub">${esc(v.sub)}</div></div>
+    </div>
+    ${dataOk && dataOk.windowTxt ? `<div class="window">⏱ <b>Publish window:</b> ${dataOk.windowTxt} <span class="chip">2.0 §23</span></div>`:""}
+    <div class="breakdown">Score basis: ${esc(v.note)}</div>
+    <div class="breakdown">${rule.rows.map(r=>`
+      <div>${esc(r.label)} — <b>${r.pts}/${r.max}</b><span class="chip">${esc(r.ref)}</span></div>
+      <div class="bar"><i style="width:${Math.round(r.pts/r.max*100)}%"></i></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function renderData(d){
+  show("sData");
+  if (!d){ $("dataBox").innerHTML = '<div class="note">Add a free YouTube API key in Settings to see autocomplete demand, outlier scans, and the trend window for this exact idea.</div>'; return; }
+  if (d.error && !d.suggestions?.length){ $("dataBox").innerHTML = `<div class="err">${esc(d.error)}</div>`; return; }
+  let h = "";
+  if (d.suggestions && d.suggestions.length){
+    h += `<div class="stat"><span>People are actually searching <span class="chip">1.0 §6</span></span><b class="${d.autoHits?'g':'y'}">${d.autoHits} match${d.autoHits===1?"":"es"} your idea</b></div>
+    <div class="suggchips">${d.suggestions.map(x=>`<span class="sugg ${x.hit?'hit':''}">${esc(x.s)}</span>`).join("")}</div>
+    <div class="note">Green chips overlap your idea — each one is a real search from a real viewer (a free title seed).</div><br>`;
+  }
+  if (d.error){ h += `<div class="err">${esc(d.error)}</div>`; $("dataBox").innerHTML=h; return; }
+  h += `<div class="stat"><span>Topic scanned</span><b class="c">${esc(d.topicQuery)}</b></div>
+  <div class="stat"><span>Median views, uploads from last 90 days</span><b>${fmtNum(d.medianRecentViews)}</b></div>
+  <div class="stat"><span>Open-lane outliers (small channels punching up) <span class="chip">2.0 §23</span></span><b class="${d.openLane>=1?'g':'y'}">${d.openLane}</b></div>
+  <div class="stat"><span>Big channels (&gt;1M subs) in results</span><b class="${d.megaShare>0.7?'r':'g'}">${Math.round(d.megaShare*100)}%</b></div>
+  <div class="stat"><span>Trend phase</span><b class="${({rising:'g',steady:'g',evergreen:'c',cooling:'y',decaying:'r',unknown:'y'})[d.phase]}">${d.phase.toUpperCase()}</b></div>`;
+  if (d.outliers && d.outliers.length){
+    h += `<label style="margin-top:14px">Receipts — verify these yourself</label>`;
+    d.outliers.forEach(o=>{
+      h += `<a class="outv" href="https://youtu.be/${esc(o.id)}" target="_blank" rel="noopener">▸ ${esc(o.title)}
+        <div class="m">${esc(o.channel)} · ${fmtNum(o.views)} views on ${fmtNum(o.subs)} subs (${o.ratio.toFixed(1)}x)</div></a>`;
+    });
+  }
+  h += `<div class="note">Estimates from public YouTube data (${d.counts.total} videos sampled) — direction over absolutes. For exact keyword volume, VidIQ stays your tool (1.0 §6).</div>`;
+  $("dataBox").innerHTML = h;
+}
+
+function renderBible(scan, matched, bucket, sharpens){
+  show("sBible");
+  let h = `<div class="stat"><span>Detected bucket</span><b class="c">${BUCKETS[bucket].name}</b></div>
+  <div class="note" style="margin:2px 0 10px">${esc(BUCKETS[bucket].hook)} <span class="chip">${BUCKETS[bucket].ref}</span></div>`;
+  if (matched.length){
+    h += `<label>Matched proven templates</label>`;
+    matched.forEach(m=> h += `<div class="item"><span class="ttl">${esc(m.name)}</span> <span class="chip">${esc(m.ref)}</span> <span class="chip">Shorts ${"■".repeat(m.shorts)}</span><div class="why">${esc(m.why)}</div></div>`);
+  } else {
+    h += `<div class="item"><span class="ttl">No template match yet</span><div class="why">That usually means the idea is still a session, not a concept. The sharpening ladder below fixes it. <span class="chip">1.0 §1.5</span></div></div>`;
+  }
+  if (scan.vague) h += `<div class="err">"I'll play X" is a session, not a video idea. Specificity turns sessions into concepts. <span class="chip">1.0 §1.5</span></div>`;
+  if (sharpens.length){
+    h += `<label>Sharpening ladder — apply one, re-run</label>`;
+    sharpens.forEach(s=> h += `<div class="item"><span class="ttl">${esc(s.fix)}</span> <span class="chip">${esc(s.ref)}</span><div class="why">${esc(s.ex)}</div></div>`);
+  }
+  h += `<div class="note">Remember: "Would I click this if someone else posted it?" is the only pre-upload test that has an answer (2.0 §01). Everything past that is only knowable in public.</div>`;
+  $("bibleBox").innerHTML = h;
+}
+
+function renderAngles(angles){
+  show("sAngles");
+  $("anglesBox").innerHTML = angles.map(a=>`
+    <div class="item"><span class="ttl">${esc(a.name)}</span> <span class="chip">${esc(a.ref)}</span> <span class="chip">Shorts ${"■".repeat(a.shorts)}</span>
+    <div class="why">${esc(a.why)}</div>
+    <div class="titlerow" style="margin-top:6px"><span class="t">→ ${esc(a.title)}</span><button class="copy" data-c="${esc(a.title)}">copy</button></div>
+    <div class="why">🖼 ${esc(a.thumb)}</div></div>`).join("");
+}
+
+function renderTitles(titles){
+  show("sTitles");
+  $("titlesBox").innerHTML = titles.map(x=>`
+    <div class="item"><span class="pattpill">${esc(x.p)}</span>
+    <div class="titlerow"><span class="t">${esc(x.t)}</span><span class="cnt ${x.over?'over':''}">${x.n}/60</span><button class="copy" data-c="${esc(x.t)}">copy</button></div></div>`).join("")
+    + `<div class="note">Write 3–5 variations before picking — the first title is rarely the best (1.0 §13). Anything over 60 chars gets cut off on mobile.</div>`;
+}
+
+function renderThumbs(thumbs){
+  show("sThumbs");
+  $("thumbsBox").innerHTML = thumbs.map(t=>`<div class="item"><span class="ttl">${esc(t.ttl)}</span> <span class="chip">${esc(t.ref)}</span><div class="why">${esc(t.why)}</div></div>`).join("");
+}
+
+let openCheck = -1;
+function renderHist(){
+  const H = store.hist;
+  if (!H.length){ $("histBox").innerHTML = '<div class="note">No verdicts yet. Run your first idea.</div>'; return; }
+  // Calibration summary from logged 48h checks
+  const logged = H.filter(h=>h.check);
+  let cal = "";
+  if (logged.length){
+    const avg = a => (a.reduce((x,y)=>x+y,0)/a.length);
+    const aC = avg(logged.map(h=>Number(h.check.ctr)||0)).toFixed(1);
+    const aA = avg(logged.map(h=>Number(h.check.avd)||0)).toFixed(0);
+    const gl = logged.filter(h=>h.cls==="green");
+    const hit = gl.length? Math.round(gl.filter(h=>{const d=diagnose48(h.check.ctr,h.check.avd); return d && d.cls==="g";}).length/gl.length*100) : null;
+    cal = `<div class="stat"><span>Your calibration (${logged.length} logged)</span><b>avg CTR ${aC}% · avg AVD ${aA}%${hit!==null? ` · GREENLIGHT hit rate <span class="${hit>=60?'g':'y'}">${hit}%</span>`:""}</b></div>
+    <div class="note" style="margin-bottom:8px">Direction beats absolutes — better than your last three is a win (2.0 §14).</div>`;
+  }
+  $("histBox").innerHTML = cal + H.map((h,i)=>{
+    const d = h.check? diagnose48(h.check.ctr, h.check.avd) : null;
+    const form = openCheck===i ? `
+      <div style="padding:8px 2px 10px">
+        <div class="row">
+          <div><label>CTR %</label><input type="text" id="c48" inputmode="decimal" placeholder="e.g. 6.4" value="${h.check?esc(h.check.ctr):""}"></div>
+          <div><label>AVD % of length</label><input type="text" id="a48" inputmode="decimal" placeholder="e.g. 38" value="${h.check?esc(h.check.avd):""}"></div>
+        </div>
+        <label>One lesson (optional)</label>
+        <input type="text" id="l48" placeholder='e.g. "open with the proof clip, not the setup"' value="${h.check&&h.check.lesson?esc(h.check.lesson):""}">
+        <div class="mrow"><button class="btn2 save48" data-i="${i}">Save check</button></div>
+      </div>` : "";
+    return `
+    <div class="hist"><span class="histload" data-i="${i}" style="flex:1;cursor:pointer">${esc(h.idea.slice(0,48))}${h.idea.length>48?"…":""}<br><small style="color:var(--faint)">${esc(h.sub||h.game||"")} · ${new Date(h.ts).toLocaleDateString()}</small></span>
+    <span class="hs ${h.cls==='green'?'g':h.cls==='yellow'?'y':'r'}">${h.score}</span>
+    <button class="copy t48" data-i="${i}">${h.check?"48h ✓":"48h"}</button></div>
+    ${d? `<div class="note" style="padding:2px 2px 8px">📊 CTR ${esc(h.check.ctr)}% · AVD ${esc(h.check.avd)}% → <b class="${d.cls}">${d.tag}</b> — ${esc(d.txt)}${h.check.lesson? `<br>📝 ${esc(h.check.lesson)}`:""}</div>`:""}
+    ${form}`;
+  }).join("") + `<div class="note">Log CTR + AVD from YouTube Studio ~48 hours after each upload. The diagnosis follows Bible 1.0 §7: CTR low = packaging · AVD low = hook · both = concept.</div>`;
+}
+
+function renderWatch(results){
+  const W = store.watch;
+  let h = "";
+  if (!W.length){
+    h += `<div class="note">Save your games here, then one tap shows which is spiking right now — so you record what's hot, not what's cold. (2.0 §23 trend windows)</div>`;
+  } else {
+    h += `<div class="suggchips">${W.map(w=>`<span class="sugg">${esc(w.label)} <b class="wdel r" data-q="${esc(w.q)}" style="cursor:pointer">✕</b></span>`).join("")}</div>`;
+  }
+  h += `<div class="mrow">
+    <input type="text" id="wNew" placeholder="Add a game… e.g. Doors" style="flex:1;min-width:120px">
+    <button class="btn2" id="wAdd">Add</button>
+    <button class="btn2" id="wScan"${store.key?"":" disabled"}>Scan all</button>
+  </div>`;
+  if (!store.key) h += `<div class="note">Scanning needs your free YouTube API key (Settings). ~102 quota units per game.</div>`;
+  if (results === "loading") h += `<div class="loading"><span class="spin"></span>Scanning your games…</div>`;
+  else if (Array.isArray(results)){
+    const order = {SPIKING:0, ACTIVE:1, QUIET:2};
+    const ok = results.filter(r=>!r.error && !r.empty).sort((a,b)=> (order[a.status]-order[b.status]) || (b.heat-a.heat));
+    ok.forEach(r=>{
+      h += `<div class="item"><span class="ttl">${esc(r.label)}</span> <b class="${r.cls}" style="float:right">${r.status}</b>
+      <div class="why">${r.uploads30d} uploads in 30d · median ${fmtNum(r.medViews)} views${r.top? ` · outlier: <a href="https://youtu.be/${esc(r.top.id)}" target="_blank" rel="noopener" style="color:var(--cyan)">${fmtNum(r.top.views)} views on ${fmtNum(r.top.subs)} subs</a>`:""}</div></div>`;
+    });
+    results.filter(r=>r.empty).forEach(r=> h += `<div class="item"><span class="ttl">${esc(r.label)}</span><div class="why">No uploads found in 30 days — quiet or the name needs tweaking.</div></div>`);
+    results.filter(r=>r.error).forEach(r=> h += `<div class="err">${esc(r.label)}: ${esc(r.error)}</div>`);
+    if (ok.length) h += `<div class="note">SPIKING = recent uploads gaining views much faster than the last month's — that window closes fast (2.0 §23). Scanned ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}.</div>`;
+  }
+  $("watchBox").innerHTML = h;
+}
+
+async function run(){
+  const idea = $("idea").value.trim();
+  if (!idea){ $("idea").focus(); return; }
+  const game = $("game").value.trim();
+  const sub = ($("subRow").style.display!=="none"? $("subgame").value.trim() : "");
+  const gEff = sub || game;                          // what titles/angles use
+  const gQuery = sub ? (sub + " roblox") : game;     // what YouTube search uses
+  const bill = $("bill").value==="yes";
+  const fmt = $("fmt").value;
+  const yes = [$("y1").checked, $("y2").checked, $("y3").checked];
+
+  const scan = scanIdea(idea);
+  const matched = classify(scan, bill);
+  const bucket = detectBucket(scan, bill, $("bucket").value);
+  const rule = ruleScore(scan, matched, yes, fmt);
+  const sharpens = sharpenLadder(scan, gEff);
+  const parts = parseIdea(idea);
+
+  // Instant rule-only render
+  let data = null;
+  renderVerdict(combineVerdict(rule.pct, null), rule, null);
+  renderBible(scan, matched, bucket, sharpens);
+  renderAngles(genAngles(matched.map(m=>m.id), gEff, parts));
+  renderTitles(genTitles(gEff, parts, matched, bill));
+  renderThumbs(genThumbs(bucket, bill, matched));
+  renderData(null);
+  window.scrollTo({top:$("sVerdict").offsetTop-10, behavior:"smooth"});
+
+  if (store.key){
+    $("dataBox").innerHTML = '<div class="loading"><span class="spin"></span>Scanning YouTube — autocomplete, outliers, trend curve…</div>';
+    $("runBtn").disabled = true;
+    try{
+      data = await fetchLiveData(store.key, idea, gQuery);
+    }catch(e){
+      data = { error: e.message || String(e) };
+    }
+    $("runBtn").disabled = false;
+    renderData(data);
+    renderVerdict(combineVerdict(rule.pct, (data && !data.error)? data : null), rule, (data && !data.error)? data : null);
+  }
+
+  const v = combineVerdict(rule.pct, (data && !data.error)? data : null);
+  const H = store.hist;
+  const now = Date.now();
+  H.unshift({id: String(now)+Math.random().toString(36).slice(2,6), ts:now, mts:now, idea, game, sub, score:v.score, cls:v.cls});
+  store.hist = H; openCheck = -1; renderHist(); schedulePush();
+}
+
+// ---------- events ----------
+$("runBtn").addEventListener("click", run);
+document.addEventListener("click", e=>{
+  const c = e.target.closest(".copy");
+  if (c){
+    const txt = c.getAttribute("data-c");
+    (navigator.clipboard? navigator.clipboard.writeText(txt) : Promise.reject()).catch(()=>{
+      const ta = document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand("copy"); }catch(_){} ta.remove();
+    });
+    c.textContent="copied"; setTimeout(()=>c.textContent="copy", 1200);
+  }
+  const hl = e.target.closest(".histload");
+  if (hl){
+    const item = store.hist[Number(hl.getAttribute("data-i"))];
+    if (item){
+      $("idea").value=item.idea; $("game").value=item.game||"";
+      toggleSub();
+      if (item.sub) $("subgame").value=item.sub;
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+  }
+  const t48 = e.target.closest(".t48");
+  if (t48){
+    const i = Number(t48.getAttribute("data-i"));
+    openCheck = (openCheck===i)? -1 : i;
+    renderHist();
+  }
+  const s48 = e.target.closest(".save48");
+  if (s48){
+    const i = Number(s48.getAttribute("data-i"));
+    const H = store.hist;
+    if (H[i]){
+      const ctr = parseFloat($("c48").value), avd = parseFloat($("a48").value);
+      if (isNaN(ctr) || isNaN(avd)){ $("c48").focus(); return; }
+      H[i].check = {ctr, avd, lesson: $("l48").value.trim(), ts: Date.now()};
+      H[i].mts = Date.now();
+      store.hist = H; openCheck = -1; renderHist(); schedulePush();
+    }
+  }
+  const wd = e.target.closest(".wdel");
+  if (wd){
+    store.watch = store.watch.filter(w=> w.q.toLowerCase() !== wd.getAttribute("data-q").toLowerCase());
+    renderWatch(null); schedulePush();
+  }
+});
+
+// Watchlist add/scan (delegated because watchBox re-renders)
+document.addEventListener("click", async e=>{
+  if (e.target.id==="wAdd"){
+    const v = $("wNew").value.trim();
+    if (!v) return;
+    const isRbx = /roblox/i.test($("game").value) || /roblox/i.test(v);
+    const label = v.replace(/\s*roblox\s*/i,"").trim() || v;
+    const q = isRbx && !/roblox/i.test(v) ? v+" roblox" : v;
+    const W = store.watch;
+    if (!W.some(w=>w.q.toLowerCase()===q.toLowerCase())){ W.push({label, q}); store.watch = W; }
+    renderWatch(null); schedulePush();
+  }
+  if (e.target.id==="wScan"){
+    if (!store.key || !store.watch.length) return;
+    renderWatch("loading");
+    const res = await scanWatch(store.key, store.watch);
+    renderWatch(res);
+  }
+});
+
+function toggleSub(){
+  $("subRow").style.display = /roblox/i.test($("game").value) ? "" : "none";
+}
+$("game").addEventListener("input", toggleSub);
+$("gearBtn").addEventListener("click", ()=>{ $("keyInput").value=store.key; $("ghInput").value=store.gh; $("keyMsg").textContent=""; $("setModal").classList.add("show"); });
+$("closeModal").addEventListener("click", ()=> $("setModal").classList.remove("show"));
+$("setModal").addEventListener("click", e=>{ if(e.target===$("setModal")) $("setModal").classList.remove("show"); });
+$("saveKeyBtn").addEventListener("click", ()=>{ store.key=$("keyInput").value.trim(); store.keyMts=Date.now(); keyStatus(); $("keyMsg").textContent = store.key? (store.gh? "Saved — will sync to your other devices.":"Saved on this device.") : "Key removed."; schedulePush(); });
+$("clearKeyBtn").addEventListener("click", ()=>{ store.key=""; store.keyMts=Date.now(); $("keyInput").value=""; keyStatus(); $("keyMsg").textContent="Key removed."; schedulePush(); });
+$("testKeyBtn").addEventListener("click", async ()=>{
+  const k = $("keyInput").value.trim(); if(!k){ $("keyMsg").textContent="Paste a key first."; return; }
+  $("keyMsg").textContent = "Testing…";
+  try{ await yt("search",{part:"snippet", q:"test", type:"video", maxResults:"1"}, k); $("keyMsg").textContent="✓ Key works. Hit Save."; }
+  catch(e){ $("keyMsg").textContent = "✗ " + e.message; }
+});
+$("expBtn").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(store.hist,null,2)],{type:"application/json"});
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="greenlight-history.json"; a.click();
+});
+$("impBtn").addEventListener("click", ()=> $("impFile").click());
+$("impFile").addEventListener("change", e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ try{ const j=JSON.parse(r.result); if(Array.isArray(j)){ store.hist=[...j,...store.hist]; renderHist(); $("keyMsg").textContent="History imported."; } }catch(_){ $("keyMsg").textContent="Couldn't read that file."; } };
+  r.readAsText(f);
+});
+$("wipeBtn").addEventListener("click", ()=>{ store.hist=[]; renderHist(); $("keyMsg").textContent="History cleared."; schedulePush(); });
+
+// Sync settings
+$("saveGhBtn").addEventListener("click", ()=>{
+  store.gh = $("ghInput").value.trim(); store.gistid = "";
+  keyStatus();
+  ghStatus(store.gh? "Token saved on this device. Hit Sync now." : "Token removed.");
+});
+$("clearGhBtn").addEventListener("click", ()=>{ store.gh=""; store.gistid=""; $("ghInput").value=""; keyStatus(); ghStatus("Token removed. (Your gist stays in your GitHub account.)"); });
+$("syncNowBtn").addEventListener("click", ()=> syncNow(false));
+
+// Boot: migrate old history items (add ids), then render + auto-pull
+(function boot(){
+  const H = store.hist; let changed=false;
+  H.forEach(h=>{ if(!h.id){ h.id=String(h.ts)+Math.random().toString(36).slice(2,6); h.mts=h.ts; changed=true; } });
+  if (changed) store.hist = H;
+  keyStatus(); renderHist(); renderWatch(null); toggleSub();
+  if (store.gh) syncNow(true);
+  if ("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>
