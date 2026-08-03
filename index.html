@@ -912,6 +912,7 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
       <button class="segb on" data-seg="studio:stats">Stats</button>
       <button class="segb" data-seg="studio:audit">Audit</button>
       <button class="segb" data-seg="studio:publish">Publish</button>
+      <button class="segb" data-seg="studio:real">Analytics</button>
       <button class="segb" data-seg="studio:history">History</button>
       <button class="segb" data-seg="studio:res">Resources</button>
     </div>
@@ -953,6 +954,15 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
         The things you retype every upload, kept in one place. Everything here is <b>editable and synced</b> — change it on any device and it follows you. The defaults are seeded from your own setup (audio targets, marker hotkeys, track layout); once you edit a block, your version sticks. <b>Copy</b> puts it on the clipboard ready to paste into YouTube.
       <div class="manlinks"><button class="manlink" data-m="resources"></button></div></details>
       <div class="card" id="resBox"></div>
+    </div>
+
+    <div class="segpage" id="seg-studio-real">
+      <div class="secttl">Real analytics — the private numbers</div>
+      <details class="help"><summary>What this unlocks and why it needs a sign-in</summary>
+        Everything else in this app runs on <b>public</b> YouTube data, which is why it can never see retention, impressions or true CTR. This connects to the <b>YouTube Analytics API</b> with your own Google account, so the app can read the same private numbers YouTube Studio shows you — the actual retention curve, real CTR against impressions, and where your views come from. Your data never leaves your device; the token is stored here and is deliberately <b>not</b> synced.
+        <div class="manlinks"><button class="manlink" data-m="analytics"></button></div>
+      </details>
+      <div class="card" id="realBox"></div>
     </div>
 
     <div class="segpage" id="seg-studio-history">
@@ -1071,6 +1081,12 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
     </div>
     <div class="note">Feel nothing at all? Check the phone isn't on Silent or Do Not Disturb — Android blocks vibration in both, and no website can override it.</div>
     <div class="mrow"><button class="btn2" id="scaleReset">Reset to defaults</button></div>
+
+    <label style="margin-top:18px">YouTube Analytics — Google Client ID</label>
+    <div class="note">Unlocks retention curves, real CTR and traffic sources. Setup is in the Manual under <b>Real analytics</b>. The Client ID syncs; the sign-in token never does.</div>
+    <input type="text" id="gcidInput" placeholder="xxxxx.apps.googleusercontent.com" autocomplete="off">
+    <div class="mrow"><button class="btn2" id="gcidSave">Save</button><button class="btn2" id="gcidClear">Remove</button>
+      <span class="note" id="gcidMsg" style="align-self:center"></span></div>
 
     <label style="margin-top:18px">Saved looks</label>
     <div class="note">Your display settings stay on this device. A saved look is a snapshot that syncs everywhere, so any device can adopt it deliberately — nothing is ever pushed onto a device without you choosing it.</div>
@@ -2020,6 +2036,7 @@ function mergeState(local, remote){
   const abSrc = pick(L, R, "aboutMts", "aboutMts");
   const reSrc = pick(L, R, "resMts", "resMts");
   const presets = mergePresets(L.presets, R.presets);
+  const gcSrc = pick(L, R, "gcidMts", "gcidMts");
   const bankMap = {};
   [...(R.bank||[]), ...(L.bank||[])].forEach(x=>{ if (x && x.id) bankMap[x.id]=x; });
   const bank = Object.values(bankMap).sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,300);
@@ -2041,6 +2058,7 @@ function mergeState(local, remote){
           res: reSrc.res||{},       resMts: Math.max(L.resMts||0, R.resMts||0),
           bank,  bankMts:  Math.max(L.bankMts||0,  R.bankMts||0),
           presets, presetsMts: Math.max(L.presetsMts||0, R.presetsMts||0),
+          gcid: gcSrc.gcid||"", gcidMts: Math.max(L.gcidMts||0, R.gcidMts||0),
           chans, chansMts: Math.max(L.chansMts||0, R.chansMts||0),
           convos, convosMts: Math.max(L.convosMts||0, R.convosMts||0),
           myTips, myTipsMts: Math.max(L.myTipsMts||0, R.myTipsMts||0),
@@ -2211,6 +2229,8 @@ const CHANGELOG = [
             "Compare wears your thumbnail\u2019s colour \u2014 upload one and the whole tab re-tints to match it, making a clash with the competitor feed visible instead of theoretical.",
             "The verdict is computed in front of you - the five axes resolve one at a time with a haptic tick each, a progress line fills, and the score reveals on a heartbeat. It reads as work being done rather than a number appearing, and it covers the live-data fetch instead of a bare spinner.",
             "Haptic strength control (Light / Medium / Strong) with test buttons in Settings, so you can check the hardware without guessing.",
+            "Studio -> Audit now shows which of YOUR formats compound - each format and game ranked by lift against your own median, plus a with-friends versus solo split. Reads public data you already pulled, so it costs no quota.",
+            "Real analytics (Studio -> Analytics). Sign in with your own Google account and the app reads your private YouTube data: the actual retention curve per video, true CTR against impressions, average view percentage and traffic sources. It also compares your hook score against what the audience really did at 30 seconds and tells you when structure is not the problem.",
             "Hook analyzer in the Check tab \u2014 scores your first 30 seconds against Context Lean, Pattern Interrupt and Snapback before you record, flags filler openers like \u2018hey guys welcome back\u2019, and tells you exactly what to fix. Your 48-hour check could already diagnose a hook problem; now there\u2019s a tool for it.",
             "Idea Bank in Radar \u2014 dump half-formed ideas the moment they happen, send any of them straight to Check, and get flagged when one goes stale unused.",
             "Channels in Radar \u2014 track competitors and see what they published since you last looked, with anything that beat their own normal called out.",
@@ -3038,6 +3058,23 @@ const MANUAL = [
  watch:"Text size, width, glass, moving background and haptics are deliberately NOT synced \u2014 a phone and a monitor need different values."}
 ];
 MANUAL.push(
+{id:"analytics", tab:"studio", area:"Studio", title:"Real analytics - setup and what it unlocks",
+ what:"Connects to the YouTube Analytics API with your own Google account so the app can read the private numbers YouTube Studio shows you: the actual retention curve, real CTR against impressions, average view percentage and traffic sources. Everything else in GreenLight runs on public data, which is why it could never see these.",
+ how:["In Google Cloud, open the same project as your YouTube API key and enable YouTube Analytics API (separate from the Data API).",
+      "Google Auth Platform -> Audience: choose External, keep status Testing, and add the Gmail that owns your channel under Test users. Skipping this causes 'Access blocked' at sign-in.",
+      "Clients -> Create client -> Web application. Under Authorized JavaScript origins add exactly https://kaedneislame.github.io with no trailing slash and no path.",
+      "Copy the Client ID and paste it into Settings -> YouTube Analytics.",
+      "Studio -> Analytics -> Connect YouTube, sign in with the channel's account and accept the analytics permission.",
+      "Press Retention on any video to pull its curve."],
+ example:"You connect and see a video at 3.1% CTR on 48,000 impressions. Its retention shows 43% left by 30 seconds with the steepest fall at 0:30. Your saved hook scores 85 on structure, so the app tells you structure is not the problem - delivery, pacing, or a thumbnail promising something the open does not deliver.",
+ watch:"Browser sign-ins last about an hour and cannot be refreshed without a server, so you press Connect roughly once per session. The token is stored on this device and deliberately never synced; only the Client ID syncs. This is the one feature that needs internet - everything else still works offline."}
+,
+{id:"series", tab:"studio", area:"Studio", title:"Which of your formats compound",
+ what:"Runs your own uploads through the same format detector used on competitors, then ranks each format by how it performs against your own median. Also splits with-friends against solo.",
+ how:["Set your channel handle in Studio -> Stats so your uploads load.","Open Studio -> Audit; the card sits above the audit score.","Read the percentages as lift against YOUR median video, not against other channels.","A format needs at least two videos before it is ranked.","Anything between -15% and +15% is treated as no signal, not a win."],
+ example:"Your median is 50k. Restriction videos median 55k (+10%, treated as noise) while question titles median 8.5k (-83%, a clear loser). With-friends medians 92k against 31k solo, so co-op is worth +197% to you. That says book more sessions and stop writing question titles.",
+ watch:"This reads public view counts only, so it measures reach and not satisfaction. A format can pull views and still lose people at 40 seconds - cross-check against your logged AVD before you commit to it."}
+,
 {id:"look", tab:"settings", area:"Settings", title:"Display settings and saved looks",
  what:"Six controls for how the app looks on THIS device, plus saved looks \u2014 named snapshots that sync everywhere so any device can adopt another\u2019s setup on purpose.",
  how:["Text size and Width scale type and layout width.","Colour sets how strongly the tab colours show \u2014 low is nearly monochrome, high is vivid.","Spacing switches between Comfortable and Compact; Compact fits noticeably more on a phone.","Motion is Full, Subtle or Off. Turn this down first if a device ever feels sluggish.","Glass sets how frosted the panels are. Moving background and Haptics are on/off.","Name a look and hit Save current \u2014 it appears on every device with an Apply button."],
@@ -3317,6 +3354,147 @@ function thumbAccent(stats){
           hex1:hexOf(a1), hex2:hexOf(a2), hue:Math.round(stats.hue)};
 }
 
+// ---------- v5.0: which of YOUR formats compound ----------
+// Runs your own uploads back through the same detectors used on competitors,
+// so "what should I make more of" is answered from your channel, not theory.
+const COLLAB_RE = /\b(with (?:my )?(?:friend|friends|bro|mate)|w\/ |ft\.?|feat\.?|vs\.?|versus|duo|squad|we |us |our |together)\b/i;
+function isCollabTitle(t){ return COLLAB_RE.test(String(t||"")); }
+
+function seriesStats(rows, opts){
+  const o = opts || {};
+  const minN = o.minN || 2;
+  const list = (rows||[]).filter(r=> r && r.title && Number(r.views) >= 0);
+  if (list.length < 3) {
+    return {ready:false, n:list.length, need: Math.max(0, 3-list.length),
+      msg: list.length
+        ? "Only " + list.length + " upload" + (list.length===1?"":"s") + " to read. A few more and patterns start showing."
+        : "No uploads loaded yet. Set your channel handle in Studio \u2192 Stats."};
+  }
+  const med = median(list.map(r=>Number(r.views)||0));
+
+  // by detected format mechanic
+  const bag = {};
+  list.forEach(r=>{
+    decomposeFormat({title:r.title, secs:r.secs||0}, "").moves.forEach(m=>{
+      const e = bag[m.k] = bag[m.k] || {k:m.k, promise:m.promise, n:0, views:[]};
+      e.n++; e.views.push(Number(r.views)||0);
+    });
+  });
+  const byMechanic = Object.values(bag).filter(x=>x.n>=minN).map(x=>{
+    const m2 = median(x.views);
+    return {...x, med:m2, lift: med ? Math.round((m2/med - 1) * 100) : 0};
+  }).sort((a,b)=>b.lift-a.lift);
+
+  // by game, using the same resolver the Radar uses
+  const gbag = {};
+  list.forEach(r=>{
+    const g = (r.game || (gameFromTitleStrong(r.title) || "")).trim();
+    if (!g) return;
+    const k = g.toLowerCase();
+    const e = gbag[k] = gbag[k] || {game:g, n:0, views:[]};
+    e.n++; e.views.push(Number(r.views)||0);
+  });
+  const byGame = Object.values(gbag).filter(x=>x.n>=minN).map(x=>{
+    const m2 = median(x.views);
+    return {...x, med:m2, lift: med ? Math.round((m2/med - 1) * 100) : 0};
+  }).sort((a,b)=>b.lift-a.lift);
+
+  return {ready:true, n:list.length, median:med, byMechanic, byGame};
+}
+
+// Solo vs with-friends, straight from your own numbers.
+function collabSplit(rows){
+  const list = (rows||[]).filter(r=> r && r.title);
+  const co = list.filter(r=> isCollabTitle(r.title));
+  const solo = list.filter(r=> !isCollabTitle(r.title));
+  if (co.length < 2 || solo.length < 2){
+    return {ready:false, co:co.length, solo:solo.length,
+      msg:"Needs at least two of each. You have " + co.length + " with-friends and " + solo.length + " solo."};
+  }
+  const cm = median(co.map(r=>Number(r.views)||0));
+  const sm = median(solo.map(r=>Number(r.views)||0));
+  const diff = sm ? Math.round((cm/sm - 1) * 100) : 0;
+  let read;
+  if (diff >= 25)      read = "Your with-friends videos do " + diff + "% better than solo. That's your lane \u2014 book more sessions.";
+  else if (diff <= -25) read = "Solo does " + Math.abs(diff) + "% better than with-friends. Worth asking whether the co-op edits are landing.";
+  else                 read = "Solo and with-friends perform about the same (" + (diff>0?"+":"") + diff + "%). Pick on what's fun, not on reach.";
+  return {ready:true, co:co.length, solo:solo.length, coMed:cm, soloMed:sm, diff, read};
+}
+
+// ---------- v5.0: real retention, from YouTube Analytics ----------
+// The API returns audienceWatchRatio against elapsedVideoTimeRatio (0..1 in
+// hundredths). Everything here works on that shape, so it is testable without
+// a network call.
+function retentionCurve(apiRows){
+  const rows = apiRows || [];
+  return rows.map(r=>({ratio: Number(r[0]), watch: Number(r[1])}))
+             .filter(p=> !isNaN(p.ratio) && !isNaN(p.watch))
+             .sort((a,b)=>a.ratio-b.ratio);
+}
+// How many are still there when the hook should have landed?
+function retentionAt(points, seconds, durationSecs){
+  if (!points || !points.length || !durationSecs) return null;
+  const target = Math.max(0, Math.min(1, seconds / durationSecs));
+  let best = points[0];
+  for (const p of points){ if (p.ratio <= target) best = p; else break; }
+  return Math.round(best.watch * 100);
+}
+// The single steepest fall, which is where the video actually breaks.
+function biggestDrop(points, durationSecs){
+  if (!points || points.length < 3) return null;
+  let worst = null;
+  for (let i=1; i<points.length; i++){
+    const d = points[i-1].watch - points[i].watch;
+    if (!worst || d > worst.drop){
+      worst = {drop:d, fromRatio:points[i-1].ratio, toRatio:points[i].ratio,
+               atSec: durationSecs ? Math.round(points[i].ratio * durationSecs) : null,
+               pct: Math.round(d*100)};
+    }
+  }
+  return worst;
+}
+function fmtClock(sec){
+  if (sec==null) return "";
+  const m = Math.floor(sec/60), r = Math.round(sec%60);
+  return m + ":" + String(r).padStart(2,"0");
+}
+function retentionRead(points, durationSecs){
+  if (!points || points.length < 3) return {ready:false, msg:"Not enough retention data for this video yet. YouTube needs a few hundred views before the curve is meaningful."};
+  const at30 = retentionAt(points, 30, durationSecs);
+  const at60 = retentionAt(points, 60, durationSecs);
+  const drop = biggestDrop(points, durationSecs);
+  const end  = Math.round((points[points.length-1].watch)*100);
+  let hook;
+  if (at30 == null) hook = "";
+  else if (at30 >= 70) hook = "Strong open \u2014 " + at30 + "% were still there at 30 seconds. Whatever you did there, keep doing it.";
+  else if (at30 >= 55) hook = "Workable open \u2014 " + at30 + "% at 30 seconds. Normal, but the first 30s is the cheapest place to gain.";
+  else hook = "The open is losing people \u2014 only " + at30 + "% made it to 30 seconds. Fix this before anything else in the video.";
+  const cliff = drop && drop.pct >= 8
+    ? "Steepest fall is " + drop.pct + " points around " + fmtClock(drop.atSec) + ". Watch that moment back \u2014 something there is losing them."
+    : "No single cliff \u2014 the drop-off is gradual, which usually means pacing rather than one bad moment.";
+  return {ready:true, at30, at60, end, drop, hook, cliff};
+}
+// Pair the hook score against what the audience actually did.
+function hookVsReality(hookScore, at30){
+  if (hookScore == null || at30 == null) return null;
+  if (hookScore >= 72 && at30 >= 65) return {k:"g", txt:"Your hook scored well and held " + at30 + "% at 30 seconds. The structure is working in the real world, not just on paper."};
+  if (hookScore >= 72 && at30 < 55)  return {k:"r", txt:"Your hook scores " + hookScore + " on structure but only held " + at30 + "% at 30 seconds. Structure isn't the problem \u2014 look at delivery, pacing or whether the thumbnail promised something the open doesn't."};
+  if (hookScore < 45 && at30 >= 65)  return {k:"y", txt:"The hook scores badly on structure yet held " + at30 + "%. Something else is carrying it \u2014 don't 'fix' it without checking what."};
+  if (hookScore < 45 && at30 < 55)   return {k:"r", txt:"Weak hook structure and " + at30 + "% at 30 seconds. These agree. Rewrite the open."};
+  return {k:"y", txt:"Hook structure " + hookScore + "/100, holding " + at30 + "% at 30 seconds. Middling on both."};
+}
+// True CTR, which no amount of public data can approximate.
+function ctrRead(impressions, ctrPct, views){
+  if (!impressions || impressions < 100) return {ready:false, msg:"Not enough impressions yet for CTR to mean anything."};
+  const c = Number(ctrPct) || 0;
+  let read;
+  if (c >= 10) read = "Excellent for gaming. Your packaging is doing real work.";
+  else if (c >= 6) read = "Healthy. Around the middle of the normal band for gaming.";
+  else if (c >= 4) read = "Below par. The thumbnail or title isn't earning the click it could.";
+  else read = "Weak. This is the highest-leverage thing on the whole video.";
+  return {ready:true, impressions, ctr:c, views:views||0, read};
+}
+
 //==ENDPURE==
 // ---------- Live YouTube data layer ----------
 const API = "https://www.googleapis.com/youtube/v3/";
@@ -3402,6 +3580,108 @@ function attachBaselines(rows, chanMap){
     } else { r.chMedian = null; r.baseline = "none"; }
   });
   return rows;
+}
+
+// ---------- v5.0: YouTube Analytics (private data, your account) ----------
+// Browser-only token flow via Google Identity Services. No server, no client
+// secret. The script is loaded on demand so the rest of the app stays offline-
+// capable — if you're offline, everything except this keeps working.
+const YTA = "https://youtubeanalytics.googleapis.com/v2/reports";
+const YTA_SCOPE = "https://www.googleapis.com/auth/yt-analytics.readonly";
+let gisPromise = null;
+function loadGIS(){
+  if (window.google && window.google.accounts && window.google.accounts.oauth2) return Promise.resolve();
+  if (gisPromise) return gisPromise;
+  gisPromise = new Promise((res, rej)=>{
+    const el = document.createElement("script");
+    el.src = "https://accounts.google.com/gsi/client";
+    el.async = true; el.defer = true;
+    el.onload = ()=> res();
+    el.onerror = ()=> { gisPromise = null; rej(new Error("Couldn't load Google sign-in. Check your connection.")); };
+    document.head.appendChild(el);
+  });
+  return gisPromise;
+}
+function gTokenValid(){ return !!store.gtok && Date.now() < store.gtokExp - 60000; }
+async function gConnect(){
+  if (!store.gcid) throw new Error("Add your Google Client ID in Settings first.");
+  await loadGIS();
+  return new Promise((resolve, reject)=>{
+    let client;
+    try{
+      client = google.accounts.oauth2.initTokenClient({
+        client_id: store.gcid,
+        scope: YTA_SCOPE,
+        callback: (resp)=>{
+          if (resp && resp.access_token){
+            store.gtok = resp.access_token;
+            store.gtokExp = Date.now() + ((Number(resp.expires_in)||3600) * 1000);
+            resolve(true);
+          } else {
+            reject(new Error((resp && resp.error_description) || "Sign-in was cancelled."));
+          }
+        },
+        error_callback: (err)=> reject(new Error(
+          (err && err.type === "popup_closed") ? "Sign-in window closed before finishing."
+          : "Google refused the sign-in. Check that this account is on the Test users list and that https://kaedneislame.github.io is an authorised JavaScript origin."))
+      });
+    }catch(e){ reject(new Error("Couldn't start sign-in: " + (e.message||e))); return; }
+    client.requestAccessToken();
+  });
+}
+async function ytaGet(params){
+  if (!gTokenValid()) throw new Error("NEEDS_AUTH");
+  const q = new URLSearchParams({ids:"channel==MINE", ...params});
+  const r = await fetch(YTA + "?" + q.toString(), {headers:{Authorization:"Bearer " + store.gtok}});
+  if (r.status === 401 || r.status === 403){
+    store.gtok = ""; store.gtokExp = 0;
+    const j = await r.json().catch(()=>({}));
+    const msg = (j.error && j.error.message) || "";
+    throw new Error(/insufficient|scope/i.test(msg)
+      ? "That account granted sign-in but not analytics access. Reconnect and accept the analytics permission."
+      : "NEEDS_AUTH");
+  }
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || "Analytics request failed");
+  return j;
+}
+function ytaDates(days){
+  const end = new Date(Date.now() - 86400000);           // yesterday; today is incomplete
+  const start = new Date(end.getTime() - (days||90)*86400000);
+  const f = d => d.toISOString().slice(0,10);
+  return {startDate:f(start), endDate:f(end)};
+}
+// Channel-level numbers no public API can give you.
+async function ytaOverview(days){
+  const d = ytaDates(days||90);
+  const j = await ytaGet({...d,
+    metrics:"views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained,subscribersLost"});
+  const row = (j.rows && j.rows[0]) || [];
+  return {views:row[0]||0, minutes:row[1]||0, avgDur:row[2]||0, avgPct:row[3]||0,
+          subsUp:row[4]||0, subsDown:row[5]||0, days:days||90};
+}
+// Per-video impressions and true CTR.
+async function ytaTopVideos(days, max){
+  const d = ytaDates(days||90);
+  const j = await ytaGet({...d, dimensions:"video", sort:"-views",
+    maxResults:String(max||20),
+    metrics:"views,averageViewPercentage,impressions,impressionClickThroughRate,averageViewDuration"});
+  return (j.rows||[]).map(r=>({id:r[0], views:r[1]||0, avgPct:r[2]||0,
+                               impressions:r[3]||0, ctr:r[4]||0, avgDur:r[5]||0}));
+}
+// The retention graph itself.
+async function ytaRetention(videoId){
+  const d = ytaDates(365);
+  const j = await ytaGet({...d, dimensions:"elapsedVideoTimeRatio",
+    metrics:"audienceWatchRatio", filters:"video==" + videoId, maxResults:"200"});
+  return retentionCurve(j.rows || []);
+}
+async function ytaTraffic(days){
+  const d = ytaDates(days||90);
+  const j = await ytaGet({...d, dimensions:"insightTrafficSourceType", metrics:"views", sort:"-views"});
+  const rows = (j.rows||[]).map(r=>({src:r[0], views:r[1]||0}));
+  const total = rows.reduce((a,b)=>a+b.views,0) || 1;
+  return rows.map(r=>({...r, pct: Math.round(r.views/total*100)}));
 }
 
 function jsonpAutocomplete(query){
@@ -3875,6 +4155,17 @@ const store = {
   // display scaling — PER DEVICE, never synced
   get ts(){ try{return Number(localStorage.getItem("gl_ts")||1);}catch(e){return 1;} },
   set ts(v){ try{localStorage.setItem("gl_ts",String(v));}catch(e){} },
+  get gcid(){ try{return localStorage.getItem("gl_gcid")||"";}catch(e){return "";} },
+  set gcid(v){ try{localStorage.setItem("gl_gcid",String(v||""));}catch(e){} },
+  get gcidMts(){ try{return Number(localStorage.getItem("gl_gcidmts")||0);}catch(e){return 0;} },
+  set gcidMts(v){ try{localStorage.setItem("gl_gcidmts",String(v||0));}catch(e){} },
+  // the token is a short-lived credential: kept on-device, never synced
+  get gtok(){ try{return localStorage.getItem("gl_gtok")||"";}catch(e){return "";} },
+  set gtok(v){ try{ v? localStorage.setItem("gl_gtok",v) : localStorage.removeItem("gl_gtok"); }catch(e){} },
+  get gtokExp(){ try{return Number(localStorage.getItem("gl_gtokexp")||0);}catch(e){return 0;} },
+  set gtokExp(v){ try{localStorage.setItem("gl_gtokexp",String(v||0));}catch(e){} },
+  get yta(){ try{return JSON.parse(localStorage.getItem("gl_yta")||"null");}catch(e){return null;} },
+  set yta(v){ try{ v? localStorage.setItem("gl_yta",JSON.stringify(v)) : localStorage.removeItem("gl_yta"); }catch(e){} },
   get accent(){ try{const v=localStorage.getItem("gl_accent"); return v===null?70:Number(v);}catch(e){return 70;} },
   set accent(v){ try{localStorage.setItem("gl_accent",String(v));}catch(e){} },
   get density(){ try{const v=localStorage.getItem("gl_density"); return v===null?1:Number(v);}catch(e){return 1;} },
@@ -4123,7 +4414,8 @@ function applyScale(){
 function localState(){ return {v:1, updated:Date.now(), hist:store.hist, watch:store.watch, ytKey:store.key, ytKeyMts:store.keyMts,
   chHandle:store.chHandle, chMts:store.chMts, tipsSaved:store.tipsSaved, posts:store.posts,
   aiKey:store.aiKey, aiKeyMts:store.aiKeyMts, about:store.about, aboutMts:store.aboutMts,
-  res:store.res, resMts:store.resMts, presets:store.presets, presetsMts:store.presetsMts, bank:store.bank, bankMts:store.bankMts, chans:(store.chans||[]).map(c=>({id:c.id, title:c.title})), chansMts:store.chansMts,
+  res:store.res, resMts:store.resMts, presets:store.presets, presetsMts:store.presetsMts,
+  gcid:store.gcid, gcidMts:store.gcidMts, bank:store.bank, bankMts:store.bankMts, chans:(store.chans||[]).map(c=>({id:c.id, title:c.title})), chansMts:store.chansMts,
   convos:(store.convos||[]).map(c=>({...c, msgs:(c.msgs||[]).slice(-60)})), convosMts:store.convosMts, myTips:store.myTips, myTipsMts:store.myTipsMts,
   notion:store.notion, notionMts:store.notionMts}; }
 function applyState(s){
@@ -4137,6 +4429,7 @@ function applyState(s){
   if (s.res && typeof s.res==="object"){ store.res=s.res; store.resMts=s.resMts||Date.now(); }
   if (Array.isArray(s.bank)){ store.bank=s.bank; store.bankMts=s.bankMts||Date.now(); }
   if (Array.isArray(s.presets)){ store.presets=s.presets; store.presetsMts=s.presetsMts||Date.now(); }
+  if (typeof s.gcid==="string" && s.gcid!==store.gcid){ store.gcid=s.gcid; store.gcidMts=s.gcidMts||Date.now(); }
   if (Array.isArray(s.chans)){
     // keep any locally cached rows; the gist only carries id + title
     const local = {}; (store.chans||[]).forEach(c=>{ if(c&&c.id) local[c.id]=c; });
@@ -4247,6 +4540,163 @@ function renderLoopCard(){
     ${slips? `<div class="callab" style="margin-top:11px">Planned but never shipped</div><div class="calaxes">${slips}</div>`:""}
     ${ps.upcoming.length? `<div class="note" style="margin-top:9px">Next planned: ${esc(parseLocalDate(ps.upcoming[0].date).toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"}))}</div>`:""}
     <div class="mrow" style="margin-top:11px"><button class="btn2" id="loopStart">Start a new 14-day loop</button></div>
+  </div>`;
+}
+
+// ---------- v5.0: your own formats, ranked ----------
+function ownRows(){
+  let C=null; try{ C=JSON.parse(localStorage.getItem("gl_chdata")||"null"); }catch(e){}
+  return (C && C.rows) ? C.rows : [];
+}
+// ---------- v5.0: real analytics ----------
+let realBusy = false, realPick = null;
+function renderReal(state){
+  const box = $("realBox"); if (!box) return;
+  if (!store.gcid){
+    box.innerHTML = `<div class="note">No Google Client ID yet. Open <b>Settings</b> and paste it in \u2014 the full setup walkthrough is in <b>Coach \u2192 Manual \u2192 Real analytics</b>.</div>
+      <div class="mrow"><button class="btn2 manlink" data-m="analytics">Read the setup steps</button></div>`;
+    labelManualLinks(); return;
+  }
+  const connected = gTokenValid();
+  const cached = store.yta;
+  let h = `<div class="mrow" style="margin:0 0 10px">
+      <button class="btn2" id="realConnect">${connected? "Refresh data" : "Connect YouTube"}</button>
+      ${connected? `<button class="btn2" id="realOut">Disconnect</button>`:""}
+      <span class="note" style="align-self:center">${connected
+        ? "connected \u00b7 expires " + new Date(store.gtokExp).toLocaleTimeString()
+        : "not connected"}</span>
+    </div>`;
+  if (state === "loading"){ box.innerHTML = h + skeleton(3, ["w40","w90","w70"]); return; }
+  if (!cached){
+    h += `<div class="note">Connect once and the app pulls your real retention, CTR and traffic sources. Tokens last about an hour, so you'll press Connect roughly once per session \u2014 that's a browser limitation, not a setting.</div>`;
+    box.innerHTML = h; labelManualLinks(); return;
+  }
+  const o = cached.overview || {};
+  const vids = cached.videos || [];
+  const traffic = cached.traffic || [];
+  h += `<div class="calcard">
+    <div class="calhead2">
+      <span class="calbig ${o.avgPct>=45?"g":o.avgPct>=30?"y":"r"}">${Math.round(o.avgPct||0)}%</span>
+      <span class="callab">average view percentage across ${o.days} days<br>
+      <b style="color:var(--muted)">${fmtNum(o.views||0)}</b> views \u00b7
+      <b style="color:var(--muted)">${fmtNum(Math.round((o.minutes||0)/60))}</b> hours watched \u00b7
+      net ${((o.subsUp||0)-(o.subsDown||0))>=0?"+":""}${fmtNum((o.subsUp||0)-(o.subsDown||0))} subs</span>
+    </div>
+    <div class="calread">Average view duration ${fmtClock(Math.round(o.avgDur||0))}. This is the number the public API can never show you.</div>
+  </div>`;
+
+  if (vids.length){
+    h += `<div class="callab" style="margin-top:12px">Your videos \u2014 real CTR</div>`;
+    h += vids.slice(0,12).map(v=>{
+      const c = ctrRead(v.impressions, v.ctr, v.views);
+      const cls = v.ctr>=8?"pos" : v.ctr>=4?"zero" : "neg";
+      return `<div class="vrow" style="align-items:flex-start">
+        <span class="vlab" style="flex:1">
+          <b>${esc((v.title||v.id).slice(0,52))}</b>
+          ${fmtNum(v.views)} views \u00b7 ${fmtNum(v.impressions)} impressions \u00b7 ${Math.round(v.avgPct)}% viewed
+        </span>
+        <span class="calsep ${cls}" style="width:56px">${(v.ctr||0).toFixed(1)}%</span>
+        <button class="btn2 realRet" data-id="${esc(v.id)}" data-dur="${Math.round((v.avgDur||0)/Math.max(0.01,(v.avgPct||1)/100))}" style="flex:none">Retention</button>
+      </div>`;
+    }).join("");
+  }
+  if (realPick && realPick.points){
+    const r = retentionRead(realPick.points, realPick.dur);
+    let hookScore = null;
+    try{ const ht = localStorage.getItem("gl_hooktxt"); if (ht) hookScore = analyzeHook(ht).score; }catch(e){}
+    const vs = r.ready ? hookVsReality(hookScore, r.at30) : null;
+    h += `<div class="calcard" style="margin-top:12px">
+      <div class="callab">Retention \u2014 ${esc((realPick.title||realPick.id).slice(0,48))}</div>
+      ${r.ready ? `
+        <div class="calread" style="margin-top:8px">${esc(r.hook)}</div>
+        <div class="calread">${esc(r.cliff)}</div>
+        <div class="calaxes" style="margin-top:10px">
+          <div class="calax"><b style="width:120px">At 30 seconds</b><span class="calsep ${r.at30>=65?"pos":r.at30>=50?"zero":"neg"}">${r.at30}%</span></div>
+          <div class="calax"><b style="width:120px">At 60 seconds</b><span class="calsep zero">${r.at60==null?"-":r.at60+"%"}</span></div>
+          <div class="calax"><b style="width:120px">Made it to the end</b><span class="calsep zero">${r.end}%</span></div>
+        </div>
+        ${vs? `<div class="tension" style="border-color:var(--${vs.k==="g"?"green":vs.k==="r"?"red":"yellow"})">
+          <h4>Your hook score vs what actually happened</h4><p>${esc(vs.txt)}</p></div>`:""}
+      ` : `<div class="note">${esc(r.msg)}</div>`}
+    </div>`;
+  }
+  if (traffic.length){
+    h += `<div class="callab" style="margin-top:12px">Where the views came from</div><div class="calaxes">` +
+      traffic.slice(0,6).map(t=>`<div class="calax"><b style="width:150px">${esc(String(t.src).replace(/_/g," ").toLowerCase())}</b>
+        <span class="calsep zero">${t.pct}%</span><span style="color:var(--faint)">${fmtNum(t.views)}</span></div>`).join("") +
+      `</div>`;
+  }
+  h += `<div class="note" style="margin-top:10px">Pulled ${esc(new Date(cached.ts).toLocaleString())}. Cached on this device so it costs nothing to look again.</div>`;
+  box.innerHTML = h;
+  labelManualLinks();
+}
+async function realRefresh(){
+  if (realBusy) return; realBusy = true;
+  renderReal("loading"); haptics("working");
+  try{
+    if (!gTokenValid()) await gConnect();
+    const [overview, videos, traffic] = await Promise.all([
+      ytaOverview(90), ytaTopVideos(90, 20), ytaTraffic(90)
+    ]);
+    // titles come from the public data we already hold
+    let titles = {};
+    try{
+      const C = JSON.parse(localStorage.getItem("gl_chdata")||"null");
+      (C && C.rows || []).forEach(r=>{ if (r.id) titles[r.id] = r.title; });
+    }catch(e){}
+    videos.forEach(v=>{ v.title = titles[v.id] || v.id; });
+    store.yta = {ts:Date.now(), overview, videos, traffic};
+    realPick = null;
+    haptics("done"); toast("Analytics updated");
+  }catch(e){
+    const msg = (e.message === "NEEDS_AUTH")
+      ? "Sign-in expired. Press Connect again."
+      : (e.message || String(e));
+    $("realBox").innerHTML = `<div class="err">${esc(msg)}</div>
+      <div class="mrow"><button class="btn2" id="realConnect">Try again</button></div>`;
+    haptics("fail"); realBusy = false; return;
+  }
+  realBusy = false; renderReal();
+}
+
+function renderSeries(){
+  const rows = ownRows();
+  const st = seriesStats(rows);
+  const cs = collabSplit(rows);
+  if (!st.ready){
+    return `<div class="calcard">
+      <div class="calhead2"><span class="calbig m">-</span><span class="callab">Which of your formats compound</span></div>
+      <div class="calread">${esc(st.msg)}</div></div>`;
+  }
+  const row = (x,label)=>{
+    const cls = x.lift>=15?"pos" : x.lift<=-15?"neg" : "zero";
+    return `<div class="calax"><b style="width:150px">${esc(label)}</b>
+      <span class="calsep ${cls}">${x.lift>0?"+":""}${x.lift}%</span>
+      <span style="color:var(--faint)">${x.n} video${x.n===1?"":"s"} &middot; ${fmtNum(x.med)} median</span></div>`;
+  };
+  const mech = st.byMechanic.length
+    ? `<div class="callab" style="margin-top:12px">By format</div>
+       <div class="calaxes">${st.byMechanic.map(m=>row(m, m.promise)).join("")}</div>` : "";
+  const gm = st.byGame.length
+    ? `<div class="callab" style="margin-top:12px">By game</div>
+       <div class="calaxes">${st.byGame.map(g=>row(g, g.game)).join("")}</div>` : "";
+  const collab = cs.ready
+    ? `<div class="hr" style="margin:12px 0"></div>
+       <div class="calhead2">
+         <span class="calbig ${cs.diff>=25?"g":cs.diff<=-25?"r":"y"}">${cs.diff>0?"+":""}${cs.diff}%</span>
+         <span class="callab">with friends vs solo<br>
+         <b style="color:var(--muted)">${fmtNum(cs.coMed)}</b> median across ${cs.co} &middot;
+         <b style="color:var(--muted)">${fmtNum(cs.soloMed)}</b> median across ${cs.solo} solo</span>
+       </div>
+       <div class="calread">${esc(cs.read)}</div>`
+    : `<div class="hr" style="margin:12px 0"></div><div class="note">${esc(cs.msg)}</div>`;
+  return `<div class="calcard">
+    <div class="calhead2">
+      <span class="calbig">${fmtNum(st.median)}</span>
+      <span class="callab">your median video, across ${st.n} uploads.<br>Everything below is measured against it.</span>
+    </div>
+    ${mech}${gm}${collab}
+    <div class="note" style="margin-top:9px">Read from your public uploads \u2014 titles are run through the same format detector used on competitors. No quota cost.</div>
   </div>`;
 }
 
@@ -4658,6 +5108,7 @@ function renderSeg(tab, seg){
     if (seg==="audit") renderAudit();
     if (seg==="publish") renderPublish();
     if (seg==="history"){ renderHist(); renderPerf(); }
+    if (seg==="real") renderReal();
     if (seg==="res") renderResources();
   }
   if (tab==="coach"){
@@ -5082,6 +5533,7 @@ function syncSettingsUI(){
   if (!$("tsRange")) return;
   $("tsRange").value=store.ts; $("zoomRange").value=store.zoom;
   $("glassRange").value=store.glass; $("glassVal").textContent=store.glass+"%";
+  if ($("gcidInput")) $("gcidInput").value = store.gcid;
   $("accRange").value=store.accent; $("accVal").textContent=store.accent+"%";
   $("densSel").value=String(store.density);
   $("animSel").value=String(store.anim);
@@ -5160,9 +5612,10 @@ function renderVersions(){
 
 // ---------- v4.0: Studio ----------
 function renderAudit(){
+  // series + collab sit with the audit: both answer "what should I make more of"
   const box = $("auditBox"); if (!box) return;
   let C = null; try{ C = JSON.parse(localStorage.getItem("gl_chdata")||"null"); }catch(e){}
-  if (!C){ box.innerHTML = `<div class="note">Add your channel under <b>Stats</b> first — the audit grades your real public data.</div>`; return; }
+  if (!C){ box.innerHTML = renderSeries() + `<div class="note">Add your channel under <b>Stats</b> first — the audit grades your real public data.</div>`; return; }
   const a = channelAudit(C, store.hist);
   let h = `<div class="scorerow"><div class="scorebig ${classOf(a.total)}">${a.total}</div>
     <div><b style="font-size:calc(17px * var(--ts))">Grade ${a.grade}</b>
@@ -5174,7 +5627,7 @@ function renderAudit(){
       <div class="note" style="margin:0">${esc(r.note)}</div></div>`;
   });
   h += `<div class="note" style="margin-top:10px">Re-run this monthly, not daily. It measures rate of improvement — early low scores are the normal starting point, not a failure.</div>`;
-  box.innerHTML = h;
+  box.innerHTML = renderSeries() + h;
 }
 function renderPublish(){
   const box = $("pubBox"); if (!box) return;
@@ -5839,6 +6292,24 @@ document.addEventListener("input", e=>{
 document.addEventListener("click", e=>{ hapticFor(e.target); }, true);
 document.addEventListener("click", e=>{
   // --- hook
+  if (e.target && e.target.id==="realConnect"){ realRefresh(); return; }
+  if (e.target && e.target.id==="realOut"){
+    store.gtok=""; store.gtokExp=0; renderReal(); toast("Disconnected"); return;
+  }
+  const retBtn = e.target.closest(".realRet");
+  if (retBtn){
+    const id = retBtn.dataset.id, dur = Number(retBtn.dataset.dur)||0;
+    const v = ((store.yta||{}).videos||[]).find(x=>x.id===id) || {};
+    retBtn.textContent = "\u2026"; retBtn.disabled = true;
+    ytaRetention(id).then(points=>{
+      realPick = {id, title:v.title, dur, points};
+      renderReal(); haptics("done");
+    }).catch(err=>{
+      toast(err.message === "NEEDS_AUTH" ? "Sign-in expired \u2014 press Connect" : (err.message||"Couldn't load retention"));
+      retBtn.textContent = "Retention"; retBtn.disabled = false;
+    });
+    return;
+  }
   if (e.target && e.target.id==="hookRun"){
     const v=$("hookIn"); if(v){ try{ localStorage.setItem("gl_hooktxt", v.value); }catch(_){} }
     renderHook(); return;
@@ -6332,6 +6803,20 @@ document.addEventListener("click", e=>{
   }
 });
 $("verJump").addEventListener("click", ()=>{ switchTab("home"); setTimeout(()=>{ const b=$("verBox"); if(b) b.scrollIntoView({behavior:"smooth", block:"start"}); }, 120); });
+$("gcidSave").addEventListener("click", ()=>{
+  const v=($("gcidInput").value||"").trim();
+  if (v && !/\.apps\.googleusercontent\.com$/.test(v)){
+    $("gcidMsg").textContent = "That doesn't look like a Client ID — it should end in .apps.googleusercontent.com";
+    return;
+  }
+  store.gcid=v; store.gcidMts=Date.now(); schedulePush();
+  $("gcidMsg").textContent = v? "Saved and syncing." : "Cleared.";
+  toast(v? "Client ID saved" : "Client ID cleared");
+});
+$("gcidClear").addEventListener("click", ()=>{
+  store.gcid=""; store.gcidMts=Date.now(); store.gtok=""; store.gtokExp=0; store.yta=null;
+  $("gcidInput").value=""; $("gcidMsg").textContent="Cleared."; schedulePush();
+});
 $("accRange").addEventListener("input", e=>{ store.accent=Number(e.target.value); applyLook(); $("accVal").textContent=store.accent+"%"; });
 $("densSel").addEventListener("change", e=>{ store.density=Number(e.target.value); applyLook(); renderPresets(); });
 $("animSel").addEventListener("change", e=>{ store.anim=Number(e.target.value); applyLook(); renderPresets(); });
