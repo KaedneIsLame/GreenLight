@@ -850,6 +850,7 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
   <details class="help"><summary>How the Check tab works (read once)</summary>
     Type your idea the way you'd say it out loud — restrictions, stakes, and timers included ("beat Doors blind, no deaths, 30 min or we uninstall"). The app reads those pieces and builds titles from them. <b>Game</b>: type the real game; if it's a Roblox game, type "Roblox" first and an exact-game box appears. <b>The 3-Yes self-check</b> is YOUR honest gut-test from Bible 1.0 §1.5 — tick a box only if it's actually true for you: (1) the title you'd write genuinely excites you, (2) you can picture the thumbnail in one sentence, (3) you know what the ending looks like. They're worth 20 points, and lying to the checkboxes only inflates your own score — the test works because you answer honestly. Can't tick all three? Run the verdict anyway — the Sharpening Ladder will tell you what's missing.
   <div class="manlinks"><button class="manlink" data-m="check"></button><button class="manlink" data-m="check-tension"></button></div></details>
+  <div id="pickInbox"></div>
   <div class="card">
     <label>The video idea</label>
     <textarea id="idea" placeholder="e.g. Beat Doors blind with friends, no deaths allowed, 30-minute limit or we uninstall"></textarea>
@@ -1054,7 +1055,7 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
   </div>
 
   <footer>
-    <b id="verJump" style="cursor:pointer;color:var(--muted);border-bottom:1px dotted var(--faint)">GreenLight v5.0</b> &middot; Rules distilled from Kaeden's Production Bible 1.0 &middot; Bible 2.0: The System &middot; The VanossMethod &middot; Ultimate Cheat Sheet (July 2026)<br>
+    <b id="verJump" style="cursor:pointer;color:var(--muted);border-bottom:1px dotted var(--faint)">GreenLight v5.1</b> &middot; Rules distilled from Kaeden's Production Bible 1.0 &middot; Bible 2.0: The System &middot; The VanossMethod &middot; Ultimate Cheat Sheet (July 2026)<br>
     Demand numbers are estimates from public YouTube data &mdash; direction over absolutes. All rights to Kaeden &middot; Built with Claude
   </footer>
 </div>
@@ -1157,6 +1158,28 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
         <li>Paste it above → Save key → Test key. Set your budget to whatever you loaded so the meter is accurate.</li>
       </ol>
       <div class="note">The key syncs to your other devices through your private gist, same as the YouTube key. Treat it like a password.</div>
+    </details>
+
+    <label style="margin-top:18px">Greenroom bridge</label>
+    <div class="note">Connects GreenLight to your notes app over a second private gist, using the same GitHub token as sync above. Radar scans publish to Greenroom's Trending Hub, "Send to notes" pushes ideas across, and picks you make in Greenroom land in the Check tab.</div>
+    <div class="mrow">
+      <button class="btn2" id="brToggle">Turn bridge on</button>
+      <button class="btn2" id="brTest">Test bridge</button>
+      <button class="btn2" id="brPoll">Check now</button>
+      <button class="btn2" id="brAuto">Auto-send feed: ON</button>
+    </div>
+    <div id="brMsg" class="note"></div>
+    <div id="brLog" style="margin-top:8px"></div>
+    <details>
+      <summary>How the bridge works</summary>
+      <ol>
+        <li>Both apps share one private gist described <code>greenroom-greenlight-bridge</code>. GreenLight creates it on first use — no extra setup beyond the token you already have.</li>
+        <li>GreenLight <b>sends</b>: the outlier picture after each Radar scan, and any idea you push with "Send to notes".</li>
+        <li>GreenLight <b>receives</b>: picks you select in Greenroom's Trending Hub. They land in an inbox at the top of Check — nothing runs automatically, because each verdict costs ~202 YouTube units.</li>
+        <li>Polling is every 60 seconds while the app is open and visible, roughly 60 of your 5,000 hourly GitHub requests.</li>
+        <li>Repeat events are ignored by id, so the same idea can never create two notes.</li>
+      </ol>
+      <div class="note">Turning the bridge off stops all sending and polling immediately. Nothing here touches your GreenLight sync gist.</div>
     </details>
 
     <label style="margin-top:18px">Notion (optional)</label>
@@ -4193,6 +4216,241 @@ async function gistPush(token, id, state){
   const g = await gh("gists", {method:"POST", body}, token);
   return g.id;
 }
+// ================= GREENROOM BRIDGE (interop spec v2, §3.1 / §4 / §5 / §7) =================
+// A second private gist, same PAT, same code shape as greenlight.json. Nothing about
+// GreenLight's own sync model, architecture or repo layout changes.
+const BRIDGE_DESC = "greenroom-greenlight-bridge";
+const BRIDGE_FILE = "bridge.json";
+const BRIDGE_APP  = "greenlight";
+const BRIDGE_PEER = "greenroom";
+const BRIDGE_MAX  = 100;              // keep newest 100 events
+const BRIDGE_TTL  = 30*86400000;      // drop anything older than 30 days
+const BRIDGE_SEEN_MAX = 200;          // §5.1 idempotency window
+
+function uuid4(){
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c=>{
+    const r = Math.random()*16|0, v = c==="x"? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+function bridgeEnvelope(kind, payload){
+  return {v:2, id:uuid4(), app:BRIDGE_APP, kind, at:new Date().toISOString(), payload:payload||{}};
+}
+// Keep newest BRIDGE_MAX, drop >30d old. Pure so it can be unit-tested.
+function bridgePrune(events, now){
+  const t = now || Date.now();
+  return (events||[])
+    .filter(e => e && e.id && (t - new Date(e.at||0).getTime()) < BRIDGE_TTL)
+    .slice(-BRIDGE_MAX);
+}
+// Which events should this app act on? Not ours, not already seen by us, not already processed.
+function bridgeInbound(events, processedIds){
+  const done = new Set(processedIds||[]);
+  return (events||[]).filter(e =>
+    e && e.id && e.app !== BRIDGE_APP &&
+    !done.has(e.id) &&
+    !((e.seenBy||[]).includes(BRIDGE_APP))
+  );
+}
+
+async function bridgeFindGist(token){
+  const list = await gh("gists?per_page=100", {}, token);
+  const g = (list||[]).find(x => (x.description||"") === BRIDGE_DESC && x.files && x.files[BRIDGE_FILE]);
+  return g ? g.id : null;
+}
+async function bridgeReadDoc(token, id){
+  const g = await gh("gists/"+id, {}, token);
+  const f = g.files && g.files[BRIDGE_FILE];
+  if (!f) return {v:2, events:[]};
+  let content = f.content;
+  if (f.truncated){ const r = await fetch(f.raw_url); content = await r.text(); }
+  try{
+    const d = JSON.parse(content);
+    return (d && Array.isArray(d.events)) ? d : {v:2, events:[]};
+  }catch(e){ return {v:2, events:[]}; }
+}
+async function bridgeWriteDoc(token, id, doc){
+  const body = JSON.stringify({
+    description: BRIDGE_DESC, public:false,
+    files:{ [BRIDGE_FILE]: { content: JSON.stringify(doc) } }
+  });
+  if (id){ await gh("gists/"+id, {method:"PATCH", body}, token); return id; }
+  const g = await gh("gists", {method:"POST", body}, token);
+  return g.id;
+}
+// Resolve (and cache) the bridge gist id, creating it on first use.
+async function bridgeGistId(token){
+  let id = store.bridgeGist;
+  if (id) return id;
+  id = await bridgeFindGist(token);
+  if (!id) id = await bridgeWriteDoc(token, null, {v:2, events:[]});
+  store.bridgeGist = id;
+  return id;
+}
+
+// §3.1 write: read → append → prune → write, then re-read once to confirm (two apps can clobber).
+async function bridgeSend(kind, payload, opts){
+  const token = store.gh;
+  if (!token) throw new Error("No GitHub token — the bridge needs the same PAT as sync (Settings).");
+  if (!store.bridgeOn && !(opts && opts.force)) return null;
+  const id = await bridgeGistId(token);
+  const ev = bridgeEnvelope(kind, payload);
+  for (let attempt=0; attempt<2; attempt++){
+    const doc = await bridgeReadDoc(token, id);
+    doc.v = 2;
+    doc.events = bridgePrune([...(doc.events||[]), ev]);
+    await bridgeWriteDoc(token, id, doc);
+    const check = await bridgeReadDoc(token, id);
+    if ((check.events||[]).some(e => e.id === ev.id)){
+      bridgeLog("out", kind, ev.id);
+      return ev;
+    }
+  }
+  throw new Error("Bridge write kept getting overwritten — try again.");
+}
+
+// §3.1 read: poll, act on new inbound events, mark them seen.
+let bridgeTimer = null, bridgeBusy = false;
+async function bridgePoll(quiet){
+  const token = store.gh;
+  if (!token || !store.bridgeOn || bridgeBusy) return;
+  bridgeBusy = true;
+  try{
+    const id = await bridgeGistId(token);
+    const doc = await bridgeReadDoc(token, id);
+    const fresh = bridgeInbound(doc.events, store.bridgeSeen);
+    if (fresh.length){
+      const seen = store.bridgeSeen;
+      fresh.forEach(ev=>{
+        try{ bridgeHandle(ev); }catch(err){ /* §5.3 degrade, never surface */ }
+        seen.push(ev.id);
+        ev.seenBy = [...new Set([...(ev.seenBy||[]), BRIDGE_APP])];   // §3.1 ack, don't delete
+      });
+      store.bridgeSeen = seen.slice(-BRIDGE_SEEN_MAX);
+      doc.events = bridgePrune(doc.events);
+      try{ await bridgeWriteDoc(token, id, doc); }catch(e){}
+      store.bridgeLast = Date.now();
+      if (document.body.dataset.tab === "check") renderPickInbox();
+      if ($("brLog")) renderBridgePanel();
+    } else {
+      store.bridgeLast = Date.now();
+    }
+  }catch(e){
+    if (!quiet && $("brMsg")) $("brMsg").textContent = "✗ " + (e.message||e);
+  }
+  bridgeBusy = false;
+}
+function bridgeStartPolling(){
+  clearInterval(bridgeTimer);
+  if (!store.bridgeOn || !store.gh) return;
+  bridgePoll(true);
+  bridgeTimer = setInterval(()=>{ if (!document.hidden) bridgePoll(true); }, 60000);  // §3.1 60s, foreground only
+}
+document.addEventListener("visibilitychange", ()=>{ if (!document.hidden) bridgePoll(true); });
+
+// Local, per-device activity log — answers "did it actually send?" (open question 3)
+function bridgeLog(dir, kind, id){
+  const l = store.bridgeLogs;
+  l.unshift({dir, kind, id, at:Date.now()});
+  store.bridgeLogs = l.slice(0,25);
+}
+
+// ---------- inbound dispatch (§4) ----------
+const bridgeSubs = [];
+function bridgeHandle(ev){
+  if (!ev || typeof ev !== "object") return;
+  if ((ev.v||0) > 2){ /* §5.4 process what we know, ignore the rest */ }
+  bridgeLog("in", ev.kind||"?", ev.id);
+  const p = ev.payload || {};
+  if (ev.kind === "ping"){
+    bridgeSend("ping", {}, {force:true}).catch(()=>{});          // §4 reply with a ping
+  } else if (ev.kind === "pick"){
+    const inbox = store.bridgeInbox;
+    (p.picks||[]).forEach(pk=>{
+      inbox.unshift({...pk, evId:ev.id, noteId:p.noteId||null, returnTo:p.returnTo||BRIDGE_PEER, at:ev.at});
+    });
+    store.bridgeInbox = inbox.slice(0,20);
+  } else if (ev.kind === "note_ref" || ev.kind === "idea" || ev.kind === "outlier_feed"){
+    // Nothing to do on GreenLight's side beyond the activity log — kept so it never errors.
+  }
+  bridgeSubs.forEach(fn=>{ try{ fn(ev); }catch(e){} });
+}
+
+// ---------- outbound builders (§4) ----------
+// Radar cards → outlier_feed. Numbers come from the YouTube API only (§4 rule).
+function buildOutlierFeed(rows, filterLabel, days){
+  const byGame = {};
+  (rows||[]).forEach(c=>{
+    const key = c.g || c.channel || "Unknown";
+    (byGame[key] = byGame[key] || []).push(c);
+  });
+  const watchByName = {};
+  (store.watch||[]).forEach(w=>{ watchByName[(w.label||"").toLowerCase()] = w; });
+  const games = Object.keys(byGame).slice(0,12).map(name=>{
+    const vids = byGame[name].sort((a,b)=> (b.ratio||0)-(a.ratio||0));
+    const best = vids[0] || {};
+    // §7 mapping: SPIKING 80–100 / ACTIVE 40–79 / QUIET 0–39, and send the word too.
+    const w = watchByName[String(name).toLowerCase()];
+    let label = w && w.status ? w.status : null, trendScore;
+    if (label === "SPIKING") trendScore = 90;
+    else if (label === "ACTIVE") trendScore = 60;
+    else if (label === "QUIET") trendScore = 20;
+    else {
+      const r = best.ratio || 0;
+      trendScore = r>=8 ? 88 : r>=4 ? 66 : r>=2.5 ? 48 : 25;
+      label = trendScore>=80 ? "SPIKING" : trendScore>=40 ? "ACTIVE" : "QUIET";
+    }
+    const src = best.gsrc || best.gsource || null;
+    const why = `${label}${best.ratio? ` — top video beats its channel's median by ${Number(best.ratio).toFixed(1)}x` : ""}` +
+                `${src? ` · game name ${src}` : ""}`;
+    const idea = (typeof pickTrendIdea === "function") ? pickTrendIdea(best.title||"", name) : null;
+    let titles = [];
+    try{ titles = genTitles(name, {}, [], false).slice(0,3).map(t=>t.t); }catch(e){}
+    return {
+      game: name,
+      platform: /roblox/i.test(filterLabel||"") ? "roblox" : (/minecraft/i.test(name)? "minecraft" : "youtube"),
+      trendScore,
+      why,
+      videos: vids.slice(0,6).map(v=>({
+        title:v.title, url:"https://youtu.be/"+v.id, channel:v.channel,
+        views:v.views, subs:v.subs, outlier: Number((v.ratio||0).toFixed(2)),
+        big: v.kind === "BIG",                       // §7: BIG is a flag, not a separate list
+        publishedAt: new Date(Date.now() - (v.age||0)*86400000).toISOString(),
+        thumb: v.thumb || `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`
+      })),
+      ideas: idea ? [{
+        id: uuid4(),
+        angle: idea.idea,
+        titles,
+        hooks: [],
+        thumbnail: "Face + this game's most recognisable visual + 2–3 bold words. Glance-test at tiny size.",
+        editNotes: "",
+        source: "greenlight-rules"                  // not Gemini — say so plainly
+      }] : []
+    };
+  });
+  return {windowHours: (Number(days)||14)*24, generatedAt:new Date().toISOString(), games};
+}
+// Verdict / radar card / bank row → idea
+function buildIdeaPayload(o){
+  o = o || {};
+  const p = {title: String(o.title||"").slice(0,200)};
+  if (o.body) p.body = o.body;
+  if (o.game) p.game = o.game;
+  if (o.bucket) p.bucket = String(o.bucket);
+  if (o.tags && o.tags.length) p.tags = o.tags;
+  if (o.titles && o.titles.length) p.titles = o.titles;
+  if (o.hooks && o.hooks.length) p.hooks = o.hooks;
+  if (o.beats && o.beats.length) p.beats = o.beats;
+  if (o.thumbConcept) p.thumbConcept = o.thumbConcept;
+  if (o.score) p.score = o.score;
+  if (o.sources && o.sources.length) p.sources = o.sources;
+  if (o.meta) p.meta = o.meta;
+  if (o.noteId) p.noteId = o.noteId;
+  return p;
+}
+
 // ---------- App layer (DOM) ----------
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -4217,6 +4475,21 @@ const store = {
   set tipsSaved(v){ try{localStorage.setItem("gl_tips",JSON.stringify([...new Set(v)]));}catch(e){} },
   get radarF(){ try{return localStorage.getItem("gl_radarf")||"all";}catch(e){return "all";} },
   set radarF(v){ try{localStorage.setItem("gl_radarf",v);}catch(e){} },
+  // --- Greenroom bridge (per-device: transport state, not synced content) ---
+  get bridgeOn(){ try{return localStorage.getItem("gl_bridgeon")==="1";}catch(e){return false;} },
+  set bridgeOn(v){ try{ v?localStorage.setItem("gl_bridgeon","1"):localStorage.removeItem("gl_bridgeon"); }catch(e){} },
+  get bridgeGist(){ try{return localStorage.getItem("gl_bridgegist")||"";}catch(e){return "";} },
+  set bridgeGist(v){ try{ v?localStorage.setItem("gl_bridgegist",v):localStorage.removeItem("gl_bridgegist"); }catch(e){} },
+  get bridgeSeen(){ try{return JSON.parse(localStorage.getItem("gl_bridgeseen")||"[]");}catch(e){return [];} },
+  set bridgeSeen(v){ try{localStorage.setItem("gl_bridgeseen",JSON.stringify((v||[]).slice(-200)));}catch(e){} },
+  get bridgeInbox(){ try{return JSON.parse(localStorage.getItem("gl_bridgeinbox")||"[]");}catch(e){return [];} },
+  set bridgeInbox(v){ try{localStorage.setItem("gl_bridgeinbox",JSON.stringify((v||[]).slice(0,20)));}catch(e){} },
+  get bridgeLogs(){ try{return JSON.parse(localStorage.getItem("gl_bridgelogs")||"[]");}catch(e){return [];} },
+  set bridgeLogs(v){ try{localStorage.setItem("gl_bridgelogs",JSON.stringify((v||[]).slice(0,25)));}catch(e){} },
+  get bridgeLast(){ try{return Number(localStorage.getItem("gl_bridgelast")||0);}catch(e){return 0;} },
+  set bridgeLast(v){ try{localStorage.setItem("gl_bridgelast",String(v||0));}catch(e){} },
+  get bridgeAuto(){ try{return localStorage.getItem("gl_bridgeauto")!=="0";}catch(e){return true;} },
+  set bridgeAuto(v){ try{localStorage.setItem("gl_bridgeauto", v?"1":"0"); }catch(e){} },
   // v4.0 — AI coach (key syncs; usage + display are per-device)
   get aiKey(){ try{return localStorage.getItem("gl_aikey")||"";}catch(e){return "";} },
   set aiKey(v){ try{ v?localStorage.setItem("gl_aikey",v):localStorage.removeItem("gl_aikey"); }catch(e){} },
@@ -5084,7 +5357,7 @@ function renderVerdict(v, rule, dataOk, axes){
     ${axHtml}
     ${tenHtml}
     ${baseNote? `<div class="basenote">${esc(baseNote)}</div>`:""}
-    <div class="mrow"><button class="btn2" id="toNotion">Send to Notion</button><span class="note" id="notionMsg" style="align-self:center"></span></div>
+    <div class="mrow"><button class="btn2" id="toNotion">Send to Notion</button><button class="btn2" id="toNotes">Send to notes</button><span class="note" id="notionMsg" style="align-self:center"></span></div>
     <details class="chg" style="margin-top:12px">
       <summary>Rule-engine breakdown <span class="chgdate">${esc(v.note)}</span></summary>
       <div class="chgbody breakdown">${rule.rows.map(r=>`
@@ -5396,6 +5669,7 @@ function radarCard(c, i){
       <div class="why" style="margin:7px 0">Thumbnail: your face + this game's most recognizable visual + 2–3 bold words.</div>
       <div class="mrow">
         <button class="btn2 tuse" data-g="${esc(c.g||"")}" data-idea="${esc(idea.idea)}">Run the full check →</button>
+        <button class="btn2 tnotes" data-g="${esc(c.g||"")}" data-idea="${esc(idea.idea)}" data-vid="${esc(c.id||"")}">Send to notes</button>
         <a class="btn2" style="text-decoration:none" href="https://youtu.be/${esc(c.id)}" target="_blank" rel="noopener">See source video</a>
       </div>
     </div>
@@ -5456,6 +5730,13 @@ async function loadTrends(force){
   try{
     const res = await fetchTrending(store.key, f, Number(d));
     try{ localStorage.setItem("gl_radraw_"+f+"_"+d, JSON.stringify(res)); }catch(e){}
+    // §7 — publish the picture to Greenroom's Trending Hub after each scan
+    if (store.bridgeOn && store.bridgeAuto){
+      try{
+        const cards = composeRadar(res.rows, {aud:getF("aud","teen"), fmt:getF("fmt","long"), size:getF("size","any")});
+        bridgeSend("outlier_feed", buildOutlierFeed(cards, (RADAR_FILTERS[f]||{}).label, d)).catch(()=>{});
+      }catch(e){}
+    }
   }catch(e){
     $("homeBox").innerHTML = radarChips() + filterBar() + '<div class="err">'+esc(e.message||e)+'</div><div class="mrow"><button class="btn2" id="trendRefresh">Retry</button></div>';
     return;
@@ -5611,6 +5892,7 @@ function renderBank(){
         <br><small style="color:var(--faint)">${esc(new Date(x.ts).toLocaleDateString())}${x.game? " \u00b7 "+esc(x.game):""}${stale.has(x.id)? ' \u00b7 <b style="color:var(--yellow)">going stale</b>':""}</small>
       </span>
       <button class="btn2 bankCheck" data-id="${esc(x.id)}" style="flex:none">Check it</button>
+      <button class="btn2 bankNotes" data-id="${esc(x.id)}" style="flex:none">→ Notes</button>
       <button class="btn2 bankUsed" data-id="${esc(x.id)}" style="flex:none">${x.used?"Unmark":"Used"}</button>
       <button class="btn2 bankDel" data-id="${esc(x.id)}" style="flex:none">\u2715</button>
     </div>`).join("") : `<div class="note">Empty. Next time something funny happens on stream, dump it here in five seconds and it'll be waiting when you sit down to plan.</div>`;
@@ -5622,6 +5904,57 @@ function renderBank(){
     </div>
     ${list.length? `<div class="stat" style="margin-top:12px"><span>${st.n} idea${st.n===1?"":"s"} banked</span><b>${st.fresh} unused${st.stale? " \u00b7 "+st.stale+" going stale":""}</b></div>`:""}
     <div style="margin-top:10px">${rows}</div>`;
+}
+
+// ---------- Greenroom bridge: UI ----------
+// Picks land unread (§5.5) and pre-fill rather than auto-running (open question 2).
+function renderPickInbox(){
+  const box = $("pickInbox"); if (!box) return;
+  const inbox = store.bridgeInbox || [];
+  if (!inbox.length){ box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="card" style="border-color:rgba(51,211,153,.5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <b style="font-size:calc(14px * var(--ts))">${inbox.length} pick${inbox.length>1?"s":""} from Greenroom</b>
+      <button class="btn2" id="pickClear">Clear</button>
+    </div>
+    <div class="note" style="margin:4px 0 8px">Nothing runs on its own — load one to fill the form, or run them in sequence. Each verdict costs ~202 YouTube units.</div>
+    ${inbox.map((p,i)=>`<div class="hist" style="align-items:flex-start">
+      <span style="flex:1;min-width:0"><b>${esc(p.title || p.angle || "(untitled pick)")}</b>
+      <br><small style="color:var(--faint)">${esc(p.game||"")}${p.note? " · "+esc(p.note):""}${p.noteId? " · updates its note":""}</small></span>
+      <button class="btn2 pickLoad" data-i="${i}" style="flex:none">Load</button>
+      <button class="btn2 pickDrop" data-i="${i}" style="flex:none">✕</button>
+    </div>`).join("")}
+  </div>`;
+}
+function loadPick(i){
+  const inbox = store.bridgeInbox || [];
+  const p = inbox[i]; if (!p) return;
+  if ($("idea")) $("idea").value = p.angle || p.title || "";
+  if ($("game")) $("game").value = p.game || "";
+  if (typeof toggleSub === "function") toggleSub();
+  window.__pickCtx = {noteId:p.noteId||null, returnTo:p.returnTo||BRIDGE_PEER, ideaId:p.ideaId||null};
+  store.bridgeInbox = inbox.filter((_,n)=>n!==i);
+  renderPickInbox();
+  switchTab("check");
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+function renderBridgePanel(){
+  const box = $("brLog"); if (!box) return;
+  const logs = store.bridgeLogs || [];
+  const last = store.bridgeLast;
+  let h = `<div class="stat"><span>Status</span><b class="${store.bridgeOn? (store.gh?"g":"y") : "y"}">${
+    !store.gh ? "Needs your GitHub token" : store.bridgeOn ? "On" : "Off"}</b></div>`;
+  if (last) h += `<div class="stat"><span>Last checked</span><b>${new Date(last).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</b></div>`;
+  if (store.bridgeGist) h += `<div class="stat"><span>Bridge gist</span><b style="font-family:ui-monospace,monospace;font-size:11px">${esc(String(store.bridgeGist).slice(0,10))}…</b></div>`;
+  if (logs.length){
+    h += `<label style="margin-top:12px">Recent activity</label>`;
+    logs.slice(0,10).forEach(l=>{
+      h += `<div class="stat"><span>${l.dir==="out"?"↑ sent":"↓ received"} <b>${esc(l.kind)}</b></span><b>${new Date(l.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</b></div>`;
+    });
+  } else {
+    h += `<div class="note" style="margin-top:10px">No bridge traffic yet. Hit <b>Test bridge</b> — Greenroom should echo a ping back.</div>`;
+  }
+  box.innerHTML = h;
 }
 
 // ---------- v5.0: competitor watch ----------
@@ -6760,6 +7093,92 @@ document.addEventListener("click", e=>{
   const qc = e.target.closest(".qchip");
   if (qc){ sendChat(qc.textContent); return; }
   // ---- Send verdict to Notion ----
+  // ---- Greenroom bridge actions ----
+  if (e.target.closest("#toNotes")){
+    const msg = $("notionMsg");
+    const idea = $("idea").value.trim(), game = $("game").value.trim();
+    const sub = ($("subgame") && $("subRow") && $("subRow").style.display!=="none") ? $("subgame").value.trim() : "";
+    const gEff = sub || game;
+    if (!store.gh){ if(msg) msg.textContent="Bridge needs your GitHub token (Settings)."; return; }
+    if (!store.bridgeOn){ if(msg) msg.textContent="Turn the Greenroom bridge on in Settings first."; return; }
+    if (msg) msg.textContent = "Sending…";
+    let parts={}, matched=[], bill=false, titles=[], v=null;
+    try{
+      parts = parseIdea(idea); bill = $("bill") && $("bill").value==="yes";
+      matched = classify(scanIdea(idea), bill);
+      titles = genTitles(gEff, parts, matched, bill).slice(0,5).map(t=>t.t);
+    }catch(err){}
+    try{ const h=(store.hist||[])[0]; if (h && h.idea===idea) v={outlier:null, verdict:h.cls, confidence:(h.score||0)/100}; }catch(err){}
+    const ctx = window.__pickCtx || {};
+    bridgeSend("idea", buildIdeaPayload({
+      title: titles[0] || idea.slice(0,120),
+      body: idea,
+      game: gEff || undefined,
+      bucket: (typeof detectBucket==="function" && $("bucket")) ? detectBucket(scanIdea(idea), bill, $("bucket").value) : undefined,
+      titles, tags: ["greenlight"].concat(gEff? [gEff.toLowerCase()] : []),
+      thumbConcept: "Face + game moment + 2–3 bold words; title asks what the thumbnail answers.",
+      score: v || undefined,
+      noteId: ctx.noteId || undefined
+    })).then(()=>{ if(msg) msg.textContent="✓ Sent to Greenroom"; if($("brLog")) renderBridgePanel(); })
+      .catch(err=>{ if(msg) msg.textContent="✗ "+(err.message||err); });
+    return;
+  }
+  const brTn = e.target.closest(".tnotes");
+  if (brTn){
+    if (!store.gh || !store.bridgeOn){ alert("Turn the Greenroom bridge on in Settings first."); return; }
+    const g = brTn.getAttribute("data-g")||"", ang = brTn.getAttribute("data-idea")||"", vid = brTn.getAttribute("data-vid")||"";
+    brTn.textContent = "Sending…";
+    let titles=[]; try{ titles = genTitles(g||"[Game]", {}, [], false).slice(0,3).map(t=>t.t); }catch(err){}
+    bridgeSend("idea", buildIdeaPayload({
+      title: ang.slice(0,120), body: ang, game: g||undefined, titles,
+      tags:["greenlight","radar"],
+      sources: vid? [{label:"Reference video", url:"https://youtu.be/"+vid}] : undefined
+    })).then(()=>{ brTn.textContent="✓ Sent"; }).catch(()=>{ brTn.textContent="✗ failed"; });
+    return;
+  }
+  const brBn = e.target.closest(".bankNotes");
+  if (brBn){
+    if (!store.gh || !store.bridgeOn){ alert("Turn the Greenroom bridge on in Settings first."); return; }
+    const item = (store.bank||[]).find(x=>x.id===brBn.getAttribute("data-id"));
+    if (!item) return;
+    brBn.textContent = "…";
+    bridgeSend("idea", buildIdeaPayload({
+      title:item.text.slice(0,120), body:item.text, game:item.game||undefined, tags:["greenlight","idea-bank"]
+    })).then(()=>{ brBn.textContent="✓"; }).catch(()=>{ brBn.textContent="✗"; });
+    return;
+  }
+  const brLoad = e.target.closest(".pickLoad");
+  if (brLoad){ loadPick(Number(brLoad.getAttribute("data-i"))); return; }
+  const brDrop = e.target.closest(".pickDrop");
+  if (brDrop){
+    const i = Number(brDrop.getAttribute("data-i"));
+    store.bridgeInbox = (store.bridgeInbox||[]).filter((_,n)=>n!==i);
+    renderPickInbox(); return;
+  }
+  if (e.target.closest("#pickClear")){ store.bridgeInbox = []; renderPickInbox(); return; }
+  if (e.target.closest("#brToggle")){
+    store.bridgeOn = !store.bridgeOn;
+    $("brToggle").textContent = store.bridgeOn? "Turn bridge off" : "Turn bridge on";
+    if (store.bridgeOn) bridgeStartPolling(); else clearInterval(bridgeTimer);
+    renderBridgePanel();
+    if ($("brMsg")) $("brMsg").textContent = store.bridgeOn? "Bridge on — polling every 60s while open." : "Bridge off.";
+    return;
+  }
+  if (e.target.closest("#brTest")){
+    const m = $("brMsg");
+    if (!store.gh){ if(m) m.textContent="Needs your GitHub token first."; return; }
+    if(m) m.textContent = "Pinging Greenroom…";
+    bridgeSend("ping", {}, {force:true})
+      .then(()=>{ if(m) m.textContent="✓ Ping sent. If Greenroom is set up it'll echo back within a minute."; renderBridgePanel(); })
+      .catch(err=>{ if(m) m.textContent="✗ "+(err.message||err); });
+    return;
+  }
+  if (e.target.closest("#brPoll")){ const m=$("brMsg"); if(m) m.textContent="Checking…"; bridgePoll(false).then(()=>{ if(m) m.textContent="✓ Checked."; renderBridgePanel(); }); return; }
+  if (e.target.closest("#brAuto")){
+    store.bridgeAuto = !store.bridgeAuto;
+    $("brAuto").textContent = store.bridgeAuto? "Auto-send feed: ON" : "Auto-send feed: OFF";
+    return;
+  }
   if (e.target.closest("#toNotion")){
     const msg = $("notionMsg"); const n = store.notion||{};
     if (!n.worker || !n.token || !n.db){ if(msg) msg.textContent = "Set up Notion in Settings first."; return; }
@@ -7028,6 +7447,10 @@ $("gearBtn").addEventListener("click", ()=>{
   const n = store.notion||{}; $("nWorker").value=n.worker||""; $("nToken").value=n.token||""; $("nDb").value=n.db||"";
   syncSettingsUI();
   renderPresets();
+  if ($("brToggle")) $("brToggle").textContent = store.bridgeOn? "Turn bridge off" : "Turn bridge on";
+  if ($("brAuto")) $("brAuto").textContent = store.bridgeAuto? "Auto-send feed: ON" : "Auto-send feed: OFF";
+  if ($("brMsg")) $("brMsg").textContent = "";
+  renderBridgePanel();
   $("hapNote").textContent = HAPTICS_OK
     ? "A short tap when you press something. Weighted \u2014 lighter for tabs, firmer for RUN."
     : "This device can't do haptics. Works on your Android phones; iPads have no vibration hardware and Safari has never supported it.";
@@ -7131,6 +7554,38 @@ $("clearGhBtn").addEventListener("click", ()=>{ store.gh=""; store.gistid=""; $(
 $("syncNowBtn").addEventListener("click", ()=> syncNow(false));
 
 // Boot: migrate old history items (add ids), then render + auto-pull
+// ---------- §7: public surface, mirroring window.Greenroom.* ----------
+window.GreenLight = {
+  version: "5.1.0",
+  // Accept a v2 envelope or a bare payload; same idempotency rules as the gist path.
+  import(payload){
+    if (!payload) return false;
+    const ev = (payload.v && payload.kind) ? payload
+             : {v:2, id:uuid4(), app:BRIDGE_PEER, kind:(payload.picks? "pick":"idea"), at:new Date().toISOString(), payload};
+    const seen = store.bridgeSeen;
+    if (seen.includes(ev.id)) return false;                       // §5.1
+    bridgeHandle(ev);
+    store.bridgeSeen = [...seen, ev.id].slice(-BRIDGE_SEEN_MAX);
+    if (document.body.dataset.tab === "check") renderPickInbox();
+    return true;
+  },
+  send(kind, data){ return bridgeSend(kind, data, {force:true}); },
+  open(tab){ const t = String(tab||"").toLowerCase();
+    if (["home","radar","check","compare","studio","coach"].includes(t)){ switchTab(t); return true; } return false; },
+  // Never returns anything sensitive — no keys, no chat, no note bodies (§5.2 spirit).
+  list(){ return (store.hist||[]).map(h=>({id:h.id, title:String(h.idea||"").slice(0,120), kind:"verdict",
+            folder:h.game||"", updated:h.mts||h.ts, score:h.score, verdict:h.cls})); },
+  onBridge(fn){ if (typeof fn === "function") bridgeSubs.push(fn); return ()=>{ const i=bridgeSubs.indexOf(fn); if(i>=0) bridgeSubs.splice(i,1); }; },
+  status(){ return {on:store.bridgeOn, hasToken:!!store.gh, gist:store.bridgeGist||null,
+            lastCheck:store.bridgeLast||null, inbox:(store.bridgeInbox||[]).length}; }
+};
+// §3.4 — only relevant if one app ever embeds the other
+window.addEventListener("message", e=>{
+  const d = e.data;
+  if (!d || d.type !== "greenlight:import") return;
+  try{ window.GreenLight.import(d.payload); }catch(err){}
+});
+
 (function boot(){
   const H = store.hist; let changed=false;
   H.forEach(h=>{ if(!h.id){ h.id=String(h.ts)+Math.random().toString(36).slice(2,6); h.mts=h.ts; changed=true; } });
@@ -7146,6 +7601,8 @@ $("syncNowBtn").addEventListener("click", ()=> syncNow(false));
   const VALID = ["home","radar","check","compare","studio","coach"];
   if (!VALID.includes(lastTab)) lastTab = "check";   // migrate old v3 tab names
   switchTab(lastTab);
+  renderPickInbox();
+  bridgeStartPolling();
   if (store.gh) syncNow(true);
   if ("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
