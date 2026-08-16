@@ -1055,7 +1055,7 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
   </div>
 
   <footer>
-    <b id="verJump" style="cursor:pointer;color:var(--muted);border-bottom:1px dotted var(--faint)">GreenLight v5.1</b> &middot; Rules distilled from Kaeden's Production Bible 1.0 &middot; Bible 2.0: The System &middot; The VanossMethod &middot; Ultimate Cheat Sheet (July 2026)<br>
+    <b id="verJump" style="cursor:pointer;color:var(--muted);border-bottom:1px dotted var(--faint)">GreenLight v5.2</b> &middot; Rules distilled from Kaeden's Production Bible 1.0 &middot; Bible 2.0: The System &middot; The VanossMethod &middot; Ultimate Cheat Sheet (July 2026)<br>
     Demand numbers are estimates from public YouTube data &mdash; direction over absolutes. All rights to Kaeden &middot; Built with Claude
   </footer>
 </div>
@@ -1157,7 +1157,7 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
         <li>Left menu → <b>API keys</b> → <b>Create key</b> → name it "greenlight" → copy it.</li>
         <li>Paste it above → Save key → Test key. Set your budget to whatever you loaded so the meter is accurate.</li>
       </ol>
-      <div class="note">The key syncs to your other devices through your private gist, same as the YouTube key. Treat it like a password.</div>
+      <div class="note"><b>This key stays on this device only</b> — no credential is ever written to your sync gist. Paste it once per device. Treat it like a password: never put it in a repo, a screenshot, or a public gist.</div>
     </details>
 
     <label style="margin-top:18px">Greenroom bridge</label>
@@ -1253,7 +1253,7 @@ body[data-anim="0"] *, body[data-anim="0"] *::before, body[data-anim="0"] *::aft
       </ol>
     </details>
     <label style="margin-top:18px">Cross-device sync (free, via a private GitHub Gist)</label>
-    <div class="note">Your history, watchlist, AND YouTube API key get saved to a private note in YOUR GitHub account. Paste the same token on each device and everything stays in sync — set the API key up once, it follows you. Pulls when you open the app, pushes after changes.</div>
+    <div class="note">Your history, watchlist, saved tips, channel profile, idea bank and chats sync through a <b>secret</b> gist in your own GitHub account. <b>API keys are deliberately excluded</b> — a gist is one slip away from being public, and GitHub's scanners read public ones. Paste your three keys once per device; everything else follows you automatically.</div>
     <input type="password" id="ghInput" placeholder="github_pat_... or ghp_..." style="margin-top:8px">
     <div class="mrow">
       <button class="btn2" id="saveGhBtn">Save token</button>
@@ -4199,7 +4199,9 @@ async function gh(path, opts, token){
 }
 async function gistFind(token){
   const list = await gh("gists?per_page=100", {}, token);
-  const g = (list||[]).find(x=> x.files && x.files["greenlight.json"]);
+  // SECURITY: only ever adopt a SECRET gist. A public one with the same filename
+  // must never be picked up — that is how a sync file ends up world-readable.
+  const g = (list||[]).find(x=> x.files && x.files["greenlight.json"] && x.public === false);
   return g? g.id : null;
 }
 async function gistPull(token, id){
@@ -4212,7 +4214,14 @@ async function gistPull(token, id){
 }
 async function gistPush(token, id, state){
   const body = JSON.stringify({description:"GreenLight sync (Kaeden's Idea Machine)", public:false, files:{"greenlight.json":{content:JSON.stringify(state)}}});
-  if (id){ await gh("gists/"+id, {method:"PATCH", body}, token); return id; }
+  if (id){
+    // SECURITY: never write into a public gist. GitHub can't convert public → secret,
+    // so the only safe move is to refuse, drop the id, and let a fresh secret one be made.
+    const meta = await gh("gists/"+id, {}, token);
+    if (meta && meta.public === true) throw new Error("PUBLIC_GIST");
+    await gh("gists/"+id, {method:"PATCH", body}, token);
+    return id;
+  }
   const g = await gh("gists", {method:"POST", body}, token);
   return g.id;
 }
@@ -4256,7 +4265,8 @@ function bridgeInbound(events, processedIds){
 
 async function bridgeFindGist(token){
   const list = await gh("gists?per_page=100", {}, token);
-  const g = (list||[]).find(x => (x.description||"") === BRIDGE_DESC && x.files && x.files[BRIDGE_FILE]);
+  // SECURITY: secret gists only, same rule as the sync gist.
+  const g = (list||[]).find(x => (x.description||"") === BRIDGE_DESC && x.files && x.files[BRIDGE_FILE] && x.public === false);
   return g ? g.id : null;
 }
 async function bridgeReadDoc(token, id){
@@ -4846,20 +4856,30 @@ function applyScale(){
 }
 
 // ---------- sync plumbing ----------
-function localState(){ return {v:1, updated:Date.now(), hist:store.hist, watch:store.watch, ytKey:store.key, ytKeyMts:store.keyMts,
+// SECURITY (v5.2): no credential ever enters the sync payload.
+// A gist is one misconfiguration away from being world-readable, and GitHub's
+// secret scanners read public ones. Keys are per-device now, like the GitHub PAT
+// always was. Everything non-secret still syncs exactly as before.
+function localState(){ return {v:1, updated:Date.now(), hist:store.hist, watch:store.watch,
   chHandle:store.chHandle, chMts:store.chMts, tipsSaved:store.tipsSaved, posts:store.posts,
-  aiKey:store.aiKey, aiKeyMts:store.aiKeyMts, about:store.about, aboutMts:store.aboutMts,
+  about:store.about, aboutMts:store.aboutMts,
   res:store.res, resMts:store.resMts, presets:store.presets, presetsMts:store.presetsMts,
   gcid:store.gcid, gcidMts:store.gcidMts, bank:store.bank, bankMts:store.bankMts, chans:(store.chans||[]).map(c=>({id:c.id, title:c.title})), chansMts:store.chansMts,
   convos:(store.convos||[]).map(c=>({...c, msgs:(c.msgs||[]).slice(-60)})), convosMts:store.convosMts, myTips:store.myTips, myTipsMts:store.myTipsMts,
-  notion:store.notion, notionMts:store.notionMts}; }
+  notion: sanitizeNotion(store.notion), notionMts:store.notionMts}; }
+// Notion's worker URL and database id are not secrets; the integration token is.
+function sanitizeNotion(n){
+  if (!n || typeof n !== "object") return {};
+  const {token, ...rest} = n;   // drop the token, keep worker + db
+  return rest;
+}
 function applyState(s){
   store.hist=s.hist||[]; store.watch=s.watch||[];
-  if (typeof s.ytKey==="string" && s.ytKey!==store.key){ store.key=s.ytKey; store.keyMts=s.ytKeyMts||Date.now(); }
+  // v5.2: credentials are never read from the gist any more. If an old payload
+  // still carries them, they are ignored — keys live on the device only.
   if (typeof s.chHandle==="string" && s.chHandle!==store.chHandle){ store.chHandle=s.chHandle; store.chMts=s.chMts||Date.now(); }
   if (Array.isArray(s.tipsSaved)) store.tipsSaved = s.tipsSaved;
   if (Array.isArray(s.posts)) store.posts = s.posts;
-  if (typeof s.aiKey==="string" && s.aiKey!==store.aiKey){ store.aiKey=s.aiKey; store.aiKeyMts=s.aiKeyMts||Date.now(); }
   if (s.about && typeof s.about==="object"){ store.about=s.about; store.aboutMts=s.aboutMts||Date.now(); }
   if (s.res && typeof s.res==="object"){ store.res=s.res; store.resMts=s.resMts||Date.now(); }
   if (Array.isArray(s.bank)){ store.bank=s.bank; store.bankMts=s.bankMts||Date.now(); }
@@ -4873,7 +4893,12 @@ function applyState(s){
   }
   if (Array.isArray(s.convos)){ store.convos = s.convos; store.convosMts = s.convosMts||Date.now(); }
   if (Array.isArray(s.myTips)){ store.myTips = s.myTips; store.myTipsMts = s.myTipsMts||Date.now(); }
-  if (s.notion && typeof s.notion==="object"){ store.notion=s.notion; store.notionMts=s.notionMts||Date.now(); }
+  if (s.notion && typeof s.notion==="object"){
+    // keep the local token; only worker + db come across the wire now
+    const localTok = (store.notion||{}).token;
+    store.notion = {...sanitizeNotion(s.notion), ...(localTok? {token:localTok} : {})};
+    store.notionMts = s.notionMts||Date.now();
+  }
   renderHist(); renderWatch(null); keyStatus();
 }
 let syncTimer = null, syncing = false;
@@ -4890,7 +4915,13 @@ async function syncNow(quiet){
     id = await gistPush(tok, id, merged);
     store.gistid = id;
     ghStatus("✓ Synced "+new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
-  }catch(e){ ghStatus("Sync failed: "+(e.message||e)); }
+  }catch(e){
+    if ((e.message||"") === "PUBLIC_GIST"){
+      // Refuse to keep writing to a world-readable gist, and stop pointing at it.
+      store.gistid = "";
+      ghStatus("⚠ That sync gist is PUBLIC — writing stopped. Delete it at gist.github.com (GitHub can't make a public gist secret), then hit Sync now to create a fresh secret one.");
+    } else ghStatus("Sync failed: "+(e.message||e));
+  }
   syncing = false;
 }
 function schedulePush(){ if (!store.gh) return; clearTimeout(syncTimer); syncTimer = setTimeout(()=>syncNow(true), 3000); }
@@ -7504,7 +7535,7 @@ $("scaleReset").addEventListener("click", ()=>{ store.ts=1; store.zoom=1; store.
   applyLook(); syncSettingsUI();
   $("tsVal").textContent="100%"; $("zoomVal").textContent="100%"; $("glassVal").textContent="60%"; });
 // AI coach settings
-$("aiSave").addEventListener("click", ()=>{ store.aiKey=$("aiInput").value.trim(); store.aiKeyMts=Date.now(); store.aiBudget=parseFloat($("aiBudget").value)||5; schedulePush(); $("aiMsg").textContent = store.aiKey? "Saved — syncs to your other devices." : "Key removed."; renderChat(); });
+$("aiSave").addEventListener("click", ()=>{ store.aiKey=$("aiInput").value.trim(); store.aiKeyMts=Date.now(); store.aiBudget=parseFloat($("aiBudget").value)||5; schedulePush(); $("aiMsg").textContent = store.aiKey? "Saved on this device (keys never sync)." : "Key removed."; renderChat(); });
 $("aiClear").addEventListener("click", ()=>{ store.aiKey=""; store.aiKeyMts=Date.now(); $("aiInput").value=""; schedulePush(); $("aiMsg").textContent="Key removed."; renderChat(); });
 $("aiReset").addEventListener("click", ()=>{ store.aiSpend={usd:0,in:0,out:0,n:0}; $("aiMsg").textContent="Spend counter reset."; renderChat(); });
 $("aiTest").addEventListener("click", async ()=>{
@@ -7523,7 +7554,7 @@ $("nSave").addEventListener("click", ()=>{
 $("nClear").addEventListener("click", ()=>{ store.notion={}; store.notionMts=Date.now(); $("nWorker").value=""; $("nToken").value=""; $("nDb").value=""; schedulePush(); $("nMsg").textContent="Notion removed."; });
 $("closeModal").addEventListener("click", ()=> $("setModal").classList.remove("show"));
 $("setModal").addEventListener("click", e=>{ if(e.target===$("setModal")) $("setModal").classList.remove("show"); });
-$("saveKeyBtn").addEventListener("click", ()=>{ store.key=$("keyInput").value.trim(); store.keyMts=Date.now(); keyStatus(); $("keyMsg").textContent = store.key? (store.gh? "Saved — will sync to your other devices.":"Saved on this device.") : "Key removed."; schedulePush(); });
+$("saveKeyBtn").addEventListener("click", ()=>{ store.key=$("keyInput").value.trim(); store.keyMts=Date.now(); keyStatus(); $("keyMsg").textContent = store.key? "Saved on this device (keys never sync)." : "Key removed."; schedulePush(); });
 $("clearKeyBtn").addEventListener("click", ()=>{ store.key=""; store.keyMts=Date.now(); $("keyInput").value=""; keyStatus(); $("keyMsg").textContent="Key removed."; schedulePush(); });
 $("testKeyBtn").addEventListener("click", async ()=>{
   const k = $("keyInput").value.trim(); if(!k){ $("keyMsg").textContent="Paste a key first."; return; }
